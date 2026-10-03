@@ -1,0 +1,2646 @@
+openapi: 3.0.3
+info:
+  title: Sistem Pengelolaan Sampah Dusun Sumberarum - API Contract
+  version: 1.0.0
+  description: |-
+    **Role:** `admin`, `super_admin` (memerlukan Bearer token), dan Publik (warga, tanpa token).
+
+    **Format response:** seluruh response dibungkus `{status, message, data}`; list disertai `meta` pagination.
+servers:
+- url: http://127.0.0.1:8000/api
+  description: Local Development
+tags:
+- name: 01 - Authentication
+  description: Login, logout, dan akun yang sedang login.
+- name: 02 - Public Dashboard
+  description: Statistik publik yang ditampilkan kepada warga tanpa autentikasi. Dokumentasi kegiatan (section transparansi
+    proses) bersifat statis dan ditulis langsung pada frontend, sehingga tidak memiliki endpoint.
+- name: 03 - Admin Dashboard
+  description: Ringkasan operasional dan informasi yang membutuhkan tindakan Admin.
+- name: 04 - Kumpul Sampah
+  description: Pencatatan setoran, detail sampah, dan penimbangan.
+- name: 05 - Status Setoran
+  description: Daftar, detail, dan status setoran sampah (belum_dipilah, menunggu_bayar, selesai).
+- name: 06 - Pembayaran & Nota
+  description: Nota setoran, pelunasan, dan riwayat pembayaran.
+- name: 07 - Data Warga
+  description: Master data warga dan nomor WhatsApp.
+- name: 08 - Tarif Jasa
+  description: Jenis sampah beserta tarif jasa pengelolaan per jenis. Nilai transaksi disimpan pada saat transaksi terjadi,
+    sedangkan riwayat perubahan tarif ditelusuri melalui Log Aktivitas.
+- name: 09 - Olah Sampah
+  description: Batch pengolahan, material yang digunakan, dan status proses.
+- name: 10 - PIC Pengolahan
+  description: Master data PIC pengolahan.
+- name: 11 - Hasil Olahan
+  description: Hasil aktual, jumlah, dan nilai hasil olahan.
+- name: 12 - Data Pengolahan
+  description: Jenis pengolahan (produk hasil olahan), satuannya, dan komposisi bahan baku.
+- name: 13 - Pengaturan Operasional
+  description: Status operasional buka/tutup.
+- name: 14 - Admin & Audit
+  description: Pengelolaan akun Admin dan histori perubahan data (khusus Super Admin).
+paths:
+  /auth/login:
+    post:
+      tags:
+      - 01 - Authentication
+      summary: Login
+      operationId: login
+      description: |-
+        **Role:** Publik
+
+        Autentikasi Admin atau Super Admin menggunakan username dan password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/LoginData'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+      security: []
+  /auth/logout:
+    post:
+      tags:
+      - 01 - Authentication
+      summary: Logout
+      operationId: logout
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengakhiri sesi login dan menonaktifkan token yang sedang dipakai.
+      responses:
+        '200':
+          description: Logout berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/me:
+    get:
+      tags:
+      - 01 - Authentication
+      summary: Akun yang sedang login
+      operationId: getMe
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengambil data akun (id, nama, username, role) dari token yang dipakai.
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/AdminSummary'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /auth/me/password:
+    patch:
+      tags:
+      - 01 - Authentication
+      summary: Ubah password sendiri
+      operationId: changeMyPassword
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengubah password akun yang sedang login. Memerlukan password lama sebagai verifikasi.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password berhasil diubah
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /public/status-operasional:
+    get:
+      tags:
+      - 02 - Public Dashboard
+      summary: Status operasional (publik)
+      operationId: publicStatusOperasional
+      description: |-
+        **Role:** Publik
+
+        Status buka/tutup tempat pengelolaan sampah untuk landing page warga.
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/StatusOperasional'
+      security: []
+  /public/ringkasan:
+    get:
+      tags:
+      - 02 - Public Dashboard
+      summary: Ringkasan pengelolaan sampah
+      operationId: publicRingkasan
+      description: |-
+        **Role:** Publik
+
+        Ringkasan agregat: sampah terkumpul, sampah diolah, hasil olahan yang sudah terbit, dan biaya jasa sampah pada periode terpilih.
+      parameters:
+      - name: periode
+        in: query
+        required: false
+        description: Periode agregasi data
+        schema:
+          type: string
+          enum:
+          - hari
+          - minggu
+          - bulan
+          default: hari
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PublicRingkasan'
+      security: []
+  /public/perkembangan:
+    get:
+      tags:
+      - 02 - Public Dashboard
+      summary: Grafik perkembangan sampah
+      operationId: publicPerkembangan
+      description: |-
+        **Role:** Publik
+
+        Data deret waktu untuk grafik perkembangan sampah terkumpul dan diolah.
+      parameters:
+      - name: periode
+        in: query
+        required: false
+        description: Periode agregasi data
+        schema:
+          type: string
+          enum:
+          - hari
+          - minggu
+          - bulan
+          default: hari
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/TitikPerkembangan'
+      security: []
+  /dashboard:
+    get:
+      tags:
+      - 03 - Admin Dashboard
+      summary: Ringkasan dashboard admin
+      operationId: getAdminDashboard
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Status operasional, ringkasan sampah terkumpul, nilai sampah terkumpul, ringkasan hasil olahan, batch sedang diolah, dan daftar yang membutuhkan tindakan Admin.
+      parameters:
+      - name: periode
+        in: query
+        required: false
+        description: Periode agregasi data
+        schema:
+          type: string
+          enum:
+          - hari
+          - minggu
+          - bulan
+          default: hari
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/AdminDashboard'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /pengumpulan-sampah:
+    post:
+      tags:
+      - 04 - Kumpul Sampah
+      summary: Buat setoran baru (nota antrian)
+      operationId: createPengumpulan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Membuat nota antrian untuk satu warga. Nomor WhatsApp mengikuti data master warga. Sistem menghasilkan ID setoran dengan status awal `belum_dipilah`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PengumpulanCreate'
+      responses:
+        '201':
+          description: Setoran dibuat
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PengumpulanRingkas'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    get:
+      tags:
+      - 05 - Status Setoran
+      summary: Daftar setoran
+      operationId: listPengumpulan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar setoran dengan filter status: Menunggu Pilah (`belum_dipilah`), Menunggu Bayar (`menunggu_bayar`), Selesai (`selesai`), atau Semua (tanpa filter status).
+      parameters:
+      - name: status
+        in: query
+        required: false
+        description: Filter status setoran
+        schema:
+          type: string
+          enum:
+          - belum_dipilah
+          - menunggu_bayar
+          - selesai
+      - name: tanggal
+        in: query
+        required: false
+        description: Filter tanggal (YYYY-MM-DD)
+        schema:
+          type: string
+          format: date
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PengumpulanRingkas'
+                    meta:
+                      $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /pengumpulan-sampah/{id}/detail:
+    post:
+      tags:
+      - 04 - Kumpul Sampah
+      summary: Tambah jenis sampah pada setoran
+      operationId: addDetailPengumpulan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menambahkan satu baris jenis sampah beserta berat hasil penimbangan. Server menghitung `nilai` = berat x tarif_jasa_pengelolaan yang berlaku saat itu, lalu menyimpannya sehingga perubahan tarif di kemudian hari tidak mengubah nilai lama. Hanya dapat dilakukan saat status `belum_dipilah`.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID pengumpulan sampah
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DetailPengumpulanInput'
+      responses:
+        '201':
+          description: Detail ditambahkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/TambahDetailData'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pengumpulan-sampah/{id}/detail/{id_detail}:
+    delete:
+      tags:
+      - 04 - Kumpul Sampah
+      summary: Hapus baris jenis sampah
+      operationId: deleteDetailPengumpulan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menghapus satu baris detail sampah. Hanya dapat dilakukan saat status `belum_dipilah`.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID pengumpulan sampah
+        schema:
+          type: integer
+      - name: id_detail
+        in: path
+        required: true
+        description: ID detail pengumpulan sampah
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Detail dihapus
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pengumpulan-sampah/{id}/selesai-pilah:
+    patch:
+      tags:
+      - 04 - Kumpul Sampah
+      summary: Tandai selesai pemilahan
+      operationId: selesaiPilah
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menandai seluruh jenis sampah pada setoran sudah dipilah dan ditimbang. Status berubah menjadi `menunggu_bayar` dan total biaya jasa dihitung.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID pengumpulan sampah
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PengumpulanRingkas'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pengumpulan-sampah/{id}:
+    get:
+      tags:
+      - 05 - Status Setoran
+      summary: Detail setoran
+      operationId: getPengumpulan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Detail setoran beserta seluruh baris jenis sampah yang sudah diinput.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID pengumpulan sampah
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PengumpulanDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pengumpulan-sampah/{id}/nota:
+    get:
+      tags:
+      - 06 - Pembayaran & Nota
+      summary: Lihat nota setoran
+      operationId: getNota
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Nota berisi detail sampah, berat, nilai, dan total biaya jasa. Nota tetap dapat diakses setelah setoran berstatus `selesai`.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID pengumpulan sampah
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Nota'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pengumpulan-sampah/{id}/pembayaran:
+    post:
+      tags:
+      - 06 - Pembayaran & Nota
+      summary: Tandai sudah lunas
+      operationId: createPembayaran
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mencatat pembayaran dan mengubah status setoran menjadi `selesai`. Hanya dapat dilakukan saat status `menunggu_bayar`.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID pengumpulan sampah
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PembayaranInput'
+      responses:
+        '201':
+          description: Pembayaran dicatat
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Pembayaran'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pembayaran:
+    get:
+      tags:
+      - 06 - Pembayaran & Nota
+      summary: Riwayat pembayaran
+      operationId: listPembayaran
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar pembayaran yang telah dicatat.
+      parameters:
+      - name: tanggal
+        in: query
+        required: false
+        description: Filter tanggal bayar (YYYY-MM-DD)
+        schema:
+          type: string
+          format: date
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Pembayaran'
+                    meta:
+                      $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /warga:
+    get:
+      tags:
+      - 07 - Data Warga
+      summary: Daftar warga
+      operationId: listWarga
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar warga. Juga dipakai untuk mencari warga penyetor saat membuat setoran.
+      parameters:
+      - name: search
+        in: query
+        required: false
+        description: Kata kunci nama warga
+        schema:
+          type: string
+      - name: status
+        in: query
+        required: false
+        description: Filter status warga
+        schema:
+          type: string
+          enum:
+          - aktif
+          - nonaktif
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Warga'
+                    meta:
+                      $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - 07 - Data Warga
+      summary: Tambah warga
+      operationId: createWarga
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menambahkan data warga beserta nomor WhatsApp.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WargaInput'
+      responses:
+        '201':
+          description: Warga ditambahkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Warga'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /warga/{id}:
+    get:
+      tags:
+      - 07 - Data Warga
+      summary: Detail warga
+      operationId: getWarga
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Detail satu warga.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID warga
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Warga'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    put:
+      tags:
+      - 07 - Data Warga
+      summary: Ubah data warga
+      operationId: updateWarga
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengubah nama atau nomor WhatsApp warga.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID warga
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WargaInput'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Warga'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - 07 - Data Warga
+      summary: Nonaktifkan warga
+      operationId: deleteWarga
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menghapus/menonaktifkan warga (soft delete). Histori setoran warga tidak hilang.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID warga
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Warga dinonaktifkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /jenis-sampah:
+    get:
+      tags:
+      - 08 - Tarif Jasa
+      summary: Daftar jenis sampah dan tarif
+      operationId: listJenisSampah
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar jenis sampah beserta satuan massa dan tarif jasa pengelolaan. Dipakai juga sebagai pilihan dropdown saat menambah detail setoran.
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/JenisSampah'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - 08 - Tarif Jasa
+      summary: Tambah jenis sampah
+      operationId: createJenisSampah
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menambahkan jenis sampah baru beserta tarifnya.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JenisSampahInput'
+      responses:
+        '201':
+          description: Jenis sampah ditambahkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/JenisSampah'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /jenis-sampah/{id}:
+    put:
+      tags:
+      - 08 - Tarif Jasa
+      summary: Ubah jenis sampah / tarif
+      operationId: updateJenisSampah
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengubah data jenis sampah atau tarif. Perubahan hanya berlaku untuk transaksi baru dan dicatat pada Log Aktivitas (data lama dan data baru).
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID jenis sampah
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JenisSampahInput'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/JenisSampah'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - 08 - Tarif Jasa
+      summary: Hapus jenis sampah
+      operationId: deleteJenisSampah
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menghapus jenis sampah.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID jenis sampah
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Jenis sampah dihapus
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /jenis-sampah/{id}/riwayat-tarif:
+    get:
+      tags:
+      - 08 - Tarif Jasa
+      summary: Riwayat perubahan tarif
+      operationId: getRiwayatTarif
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Riwayat perubahan tarif satu jenis sampah. Data diambil dari Log Aktivitas dengan entitas jenis sampah.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID jenis sampah
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/RiwayatTarif'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /material-siap-olah:
+    get:
+      tags:
+      - 09 - Olah Sampah
+      summary: Material siap olah
+      operationId: listMaterialSiapOlah
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Ringkasan material yang tersedia untuk diolah, dikelompokkan per jenis sampah. Berat tersedia dihitung backend dari total berat detail setoran dengan pembayaran berstatus lunas, dikurangi seluruh berat yang sudah dialokasikan ke batch berstatus `dalam_pengolahan` atau `selesai_diolah`. Ketika batch dibuat, alokasi langsung mengurangi ketersediaan sehingga material yang sama tidak dapat dipakai pada batch lain. `berat_tersedia` adalah nilai hasil perhitungan, bukan kolom database yang wajib disimpan.
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/MaterialSiapOlah'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /pengolahan-sampah:
+    post:
+      tags:
+      - 09 - Olah Sampah
+      summary: Buat batch pengolahan
+      operationId: createPengolahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Membuat batch pengolahan: memilih jenis olahan, PIC pengolahan, dan bahan baku sesuai komposisi. Admin pembuat diambil dari token. Status awal `dalam_pengolahan`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PengolahanCreate'
+      responses:
+        '201':
+          description: Batch dibuat
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PengolahanDetail'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    get:
+      tags:
+      - 09 - Olah Sampah
+      summary: Daftar batch pengolahan
+      operationId: listPengolahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar batch dengan filter Sedang Diolah (`dalam_pengolahan`) atau Riwayat Olah (`selesai_diolah`). Pagination memakai page mulai 1 dan limit maksimal 10.
+      parameters:
+      - name: status
+        in: query
+        required: false
+        description: Filter status batch
+        schema:
+          type: string
+          enum:
+          - dalam_pengolahan
+          - selesai_diolah
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Pengolahan'
+                    meta:
+                      $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /pengolahan-sampah/{id}:
+    get:
+      tags:
+      - 09 - Olah Sampah
+      summary: Detail batch pengolahan
+      operationId: getPengolahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Detail batch beserta bahan baku yang dialokasikan. Material yang telah dialokasikan tidak tersedia untuk batch lain, baik batch masih `dalam_pengolahan` maupun sudah `selesai_diolah`.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID batch pengolahan
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PengolahanDetail'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pengolahan-sampah/{id}/selesai:
+    patch:
+      tags:
+      - 09 - Olah Sampah
+      summary: Tandai batch selesai
+      operationId: selesaiPengolahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengubah status batch menjadi `selesai_diolah` dan mengisi tgl_selesai. Perubahan status tidak mengurangi stok lagi karena material telah dikurangi saat dialokasikan ketika batch dibuat. Hasil aktual olahan dicatat melalui modul Hasil Olahan setelah batch selesai.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID batch pengolahan
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Pengolahan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /pic-pengolah:
+    get:
+      tags:
+      - 10 - PIC Pengolahan
+      summary: Daftar PIC pengolahan
+      operationId: listPic
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar PIC yang dapat dipilih saat membuat batch.
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Pic'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - 10 - PIC Pengolahan
+      summary: Tambah PIC
+      operationId: createPic
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menambahkan PIC pengolahan baru.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PicInput'
+      responses:
+        '201':
+          description: PIC ditambahkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Pic'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /pic-pengolah/{id}:
+    put:
+      tags:
+      - 10 - PIC Pengolahan
+      summary: Ubah PIC
+      operationId: updatePic
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengubah nama atau nomor WhatsApp PIC.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID PIC
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PicInput'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Pic'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - 10 - PIC Pengolahan
+      summary: Hapus PIC
+      operationId: deletePic
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menghapus PIC.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID PIC
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: PIC dihapus
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /hasil-olahan:
+    post:
+      tags:
+      - 11 - Hasil Olahan
+      summary: Catat hasil olahan
+      operationId: createHasilOlahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mencatat hasil aktual dari batch yang berstatus `selesai_diolah`. Status publikasi awal `belum_terbit`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HasilOlahanInput'
+      responses:
+        '201':
+          description: Hasil dicatat
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/HasilOlahan'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    get:
+      tags:
+      - 11 - Hasil Olahan
+      summary: Daftar hasil olahan
+      operationId: listHasilOlahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar hasil olahan untuk Menunggu Pencatatan Hasil dan Riwayat Hasil.
+      parameters:
+      - name: status_publikasi
+        in: query
+        required: false
+        description: Filter status publikasi
+        schema:
+          type: string
+          enum:
+          - belum_terbit
+          - terbit
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/HasilOlahan'
+                    meta:
+                      $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /hasil-olahan/{id}/publikasikan:
+    patch:
+      tags:
+      - 11 - Hasil Olahan
+      summary: Publikasikan hasil olahan
+      operationId: publikasikanHasilOlahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menerbitkan hasil olahan sehingga masuk ke Public Dashboard Warga.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID hasil olahan
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/HasilOlahan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /jenis-olahan:
+    get:
+      tags:
+      - 12 - Data Pengolahan
+      summary: Daftar jenis olahan
+      operationId: listJenisOlahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar jenis pengolahan/produk hasil olahan beserta satuan dan nilai.
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/JenisOlahan'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - 12 - Data Pengolahan
+      summary: Tambah jenis olahan
+      operationId: createJenisOlahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menambahkan jenis olahan baru.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JenisOlahanInput'
+      responses:
+        '201':
+          description: Jenis olahan ditambahkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/JenisOlahan'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /jenis-olahan/{id}:
+    put:
+      tags:
+      - 12 - Data Pengolahan
+      summary: Ubah jenis olahan
+      operationId: updateJenisOlahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengubah data jenis olahan.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID jenis olahan
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/JenisOlahanInput'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/JenisOlahan'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags:
+      - 12 - Data Pengolahan
+      summary: Hapus jenis olahan
+      operationId: deleteJenisOlahan
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menghapus jenis olahan.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID jenis olahan
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Jenis olahan dihapus
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /jenis-olahan/{id}/komposisi:
+    get:
+      tags:
+      - 12 - Data Pengolahan
+      summary: Daftar komposisi olahan
+      operationId: listKomposisi
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Daftar jenis sampah yang menjadi bahan baku satu jenis olahan.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID jenis olahan
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Komposisi'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+    post:
+      tags:
+      - 12 - Data Pengolahan
+      summary: Tambah komposisi olahan
+      operationId: createKomposisi
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menambahkan jenis sampah sebagai bahan baku pada jenis olahan.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID jenis olahan
+        schema:
+          type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/KomposisiInput'
+      responses:
+        '201':
+          description: Komposisi ditambahkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Komposisi'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /komposisi-olahan/{id}:
+    delete:
+      tags:
+      - 12 - Data Pengolahan
+      summary: Hapus komposisi olahan
+      operationId: deleteKomposisi
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Menghapus satu baris komposisi.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID komposisi
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Komposisi dihapus
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /status-operasional:
+    get:
+      tags:
+      - 13 - Pengaturan Operasional
+      summary: Lihat status operasional
+      operationId: getStatusOperasional
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Status operasional saat ini.
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/StatusOperasional'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    patch:
+      tags:
+      - 13 - Pengaturan Operasional
+      summary: Ubah status operasional
+      operationId: updateStatusOperasional
+      description: |-
+        **Role:** Admin, Super Admin
+
+        Mengubah status buka/tutup secara manual.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusOperasionalInput'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/StatusOperasional'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin:
+    get:
+      tags:
+      - 14 - Admin & Audit
+      summary: Daftar admin
+      operationId: listAdmin
+      description: |-
+        **Role:** Super Admin
+
+        Daftar akun Admin.
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Admin'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags:
+      - 14 - Admin & Audit
+      summary: Tambah admin
+      operationId: createAdmin
+      description: |-
+        **Role:** Super Admin
+
+        Menambahkan akun Admin baru.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCreate'
+      responses:
+        '201':
+          description: Admin ditambahkan
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Admin'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+  /admin/{id}:
+    delete:
+      tags:
+      - 14 - Admin & Audit
+      summary: Hapus admin
+      operationId: deleteAdmin
+      description: |-
+        **Role:** Super Admin
+
+        Menghapus akun Admin.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: ID admin
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Admin dihapus
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: object
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /audit-log:
+    get:
+      tags:
+      - 14 - Admin & Audit
+      summary: Riwayat aktivitas admin
+      operationId: listAuditLog
+      description: |-
+        **Role:** Super Admin
+
+        Histori perubahan data penting: aksi, entitas, data lama, data baru, ID Admin pelaku, dan waktu perubahan.
+      parameters:
+      - name: id_admin
+        in: query
+        required: false
+        description: Filter admin pelaku
+        schema:
+          type: integer
+      - name: entitas
+        in: query
+        required: false
+        description: Filter entitas yang diubah
+        schema:
+          type: string
+      - name: tanggal
+        in: query
+        required: false
+        description: Filter tanggal (YYYY-MM-DD)
+        schema:
+          type: string
+          format: date
+      - $ref: '#/components/parameters/page'
+      - $ref: '#/components/parameters/limit'
+      responses:
+        '200':
+          description: Berhasil
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/AuditLog'
+                    meta:
+                      $ref: '#/components/schemas/Meta'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  parameters:
+    page:
+      name: page
+      in: query
+      description: Nomor halaman
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    limit:
+      name: limit
+      in: query
+      description: Jumlah data per halaman
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 10
+        default: 10
+  responses:
+    Unauthorized:
+      description: Token tidak ada atau tidak valid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            message: Token tidak ada atau tidak valid
+    Forbidden:
+      description: Role tidak memiliki akses ke endpoint ini
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            message: Role tidak memiliki akses ke endpoint ini
+    NotFound:
+      description: Data tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            message: Data tidak ditemukan
+    ValidationError:
+      description: Validasi data gagal. Key pada errors menyesuaikan nama field yang gagal divalidasi.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: error
+            message: Validasi gagal
+            errors:
+              password:
+                - Password wajib diisi.
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - success
+        message:
+          type: string
+    ErrorResponse:
+      type: object
+      description: >-
+        Format respons error. Properti errors bersifat opsional dan menggunakan nama field
+        yang benar-benar gagal divalidasi sebagai key dinamis (misalnya username, password,
+        id_warga, atau id_program). Nama additionalProp1/additionalProp2 yang mungkin
+        ditampilkan Swagger hanyalah placeholder otomatis, bukan key literal yang dikirim API.
+      properties:
+        status:
+          type: string
+          enum:
+          - error
+          example: error
+        message:
+          type: string
+          example: Validasi gagal
+        errors:
+          type: object
+          description: Rincian kesalahan validasi per field; dapat tidak disertakan untuk error non-validasi.
+          additionalProperties:
+            type: array
+            items:
+              type: string
+          example:
+            password:
+              - Password wajib diisi.
+      example:
+        status: error
+        message: Validasi gagal
+        errors:
+          password:
+            - Password wajib diisi.
+    Meta:
+      type: object
+      description: Metadata pagination untuk response daftar. page dimulai dari 1; limit default dan maksimum 10.
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total_data:
+          type: integer
+        total_page:
+          type: integer
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+      required:
+      - username
+      - password
+    AdminSummary:
+      type: object
+      properties:
+        id_admin:
+          type: integer
+        nama:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum:
+          - admin
+          - super_admin
+    LoginData:
+      type: object
+      properties:
+        token:
+          type: string
+        role:
+          type: string
+          enum:
+          - admin
+          - super_admin
+        admin:
+          $ref: '#/components/schemas/AdminSummary'
+    ChangePasswordRequest:
+      type: object
+      properties:
+        password_lama:
+          type: string
+          format: password
+        password_baru:
+          type: string
+          format: password
+        konfirmasi_password_baru:
+          type: string
+          format: password
+      required:
+      - password_lama
+      - password_baru
+      - konfirmasi_password_baru
+    StatusOperasional:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - buka
+          - tutup
+        updated_at:
+          type: string
+          format: date-time
+    StatusOperasionalInput:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - buka
+          - tutup
+      required:
+      - status
+    HasilOlahanPublik:
+      type: object
+      properties:
+        nama_olahan:
+          type: string
+        berat_hasil_olahan:
+          type: number
+        satuan_massa:
+          type: string
+        nilai_jual:
+          type: number
+    PublicRingkasan:
+      type: object
+      properties:
+        periode:
+          type: string
+        sampah_terkumpul:
+          type: number
+        sampah_diolah:
+          type: number
+        hasil_olahan:
+          type: array
+          items:
+            $ref: '#/components/schemas/HasilOlahanPublik'
+        total_biaya_jasa_sampah:
+          type: number
+    TitikPerkembangan:
+      type: object
+      properties:
+        tanggal:
+          type: string
+          format: date
+        sampah_terkumpul:
+          type: number
+        sampah_diolah:
+          type: number
+    AdminDashboard:
+      type: object
+      properties:
+        status_operasional:
+          type: string
+          enum:
+          - buka
+          - tutup
+        ringkasan_sampah_terkumpul:
+          type: object
+          properties:
+            berat:
+              type: number
+            nilai:
+              type: number
+        ringkasan_hasil_olahan:
+          type: array
+          items:
+            $ref: '#/components/schemas/HasilOlahan'
+        batch_sedang_diolah:
+          type: array
+          items:
+            $ref: '#/components/schemas/Pengolahan'
+        action_required:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActionRequired'
+    ActionRequired:
+      type: object
+      properties:
+        jenis:
+          type: string
+          enum:
+          - belum_dipilah
+          - menunggu_bayar
+          - menunggu_pencatatan_hasil
+        id:
+          type: integer
+        keterangan:
+          type: string
+    PengumpulanCreate:
+      type: object
+      properties:
+        id_warga:
+          type: integer
+      required:
+      - id_warga
+    PengumpulanRingkas:
+      type: object
+      properties:
+        id_pengumpulan_sampah:
+          type: integer
+        id_warga:
+          type: integer
+        nama_warga:
+          type: string
+        nomor_wa:
+          type: string
+        status:
+          type: string
+          enum:
+          - belum_dipilah
+          - menunggu_bayar
+          - selesai
+        tanggal:
+          type: string
+          format: date-time
+        total_biaya:
+          type: number
+    DetailPengumpulan:
+      type: object
+      properties:
+        id_detail_pengumpulan_sampah:
+          type: integer
+        id_jenis_sampah:
+          type: integer
+        nama_sampah:
+          type: string
+        berat:
+          type: number
+        nilai:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+    DetailPengumpulanInput:
+      type: object
+      properties:
+        id_jenis_sampah:
+          type: integer
+        berat:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+      required:
+      - id_jenis_sampah
+      - berat
+    TambahDetailData:
+      type: object
+      properties:
+        detail:
+          $ref: '#/components/schemas/DetailPengumpulan'
+        total_biaya_sementara:
+          type: number
+    PengumpulanDetail:
+      allOf:
+      - $ref: '#/components/schemas/PengumpulanRingkas'
+      - type: object
+        properties:
+          items:
+            type: array
+            items:
+              $ref: '#/components/schemas/DetailPengumpulan'
+    Nota:
+      type: object
+      properties:
+        id_pengumpulan_sampah:
+          type: integer
+        tanggal:
+          type: string
+          format: date-time
+        warga:
+          type: object
+          properties:
+            nama:
+              type: string
+            nomor_wa:
+              type: string
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/DetailPengumpulan'
+        total_biaya:
+          type: number
+        status:
+          type: string
+          enum:
+          - belum_dipilah
+          - menunggu_bayar
+          - selesai
+        pembayaran:
+          allOf:
+          - $ref: '#/components/schemas/Pembayaran'
+          nullable: true
+    Pembayaran:
+      type: object
+      properties:
+        id_pembayaran:
+          type: integer
+        id_pengumpulan_sampah:
+          type: integer
+        id_admin:
+          type: integer
+        jumlah_dibayar:
+          type: number
+        tanggal_bayar:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum:
+          - lunas
+    PembayaranInput:
+      type: object
+      properties:
+        jumlah_dibayar:
+          type: number
+          minimum: 0
+      required:
+      - jumlah_dibayar
+    Warga:
+      type: object
+      properties:
+        id_warga:
+          type: integer
+        nama:
+          type: string
+        nomor_wa:
+          type: string
+        status:
+          type: string
+          enum:
+          - aktif
+          - nonaktif
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    WargaInput:
+      type: object
+      properties:
+        nama:
+          type: string
+        nomor_wa:
+          type: string
+      required:
+      - nama
+      - nomor_wa
+    JenisSampah:
+      type: object
+      properties:
+        id_jenis_sampah:
+          type: integer
+        nama_sampah:
+          type: string
+        satuan_massa:
+          type: string
+        tarif_jasa_pengelolaan:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    JenisSampahInput:
+      type: object
+      properties:
+        nama_sampah:
+          type: string
+        satuan_massa:
+          type: string
+        tarif_jasa_pengelolaan:
+          type: number
+          minimum: 0
+      required:
+      - nama_sampah
+      - satuan_massa
+      - tarif_jasa_pengelolaan
+    RiwayatTarif:
+      type: object
+      properties:
+        id_log:
+          type: integer
+        id_admin:
+          type: integer
+        nama_admin:
+          type: string
+        tarif_lama:
+          type: number
+        tarif_baru:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+    MaterialSiapOlah:
+      type: object
+      properties:
+        id_jenis_sampah:
+          type: integer
+        nama_sampah:
+          type: string
+        berat_tersedia:
+          type: number
+        satuan_massa:
+          type: string
+    BahanBakuInput:
+      type: object
+      properties:
+        id_komposisi:
+          type: integer
+        berat_digunakan:
+          type: number
+          minimum: 0
+          exclusiveMinimum: true
+      required:
+      - id_komposisi
+      - berat_digunakan
+    PengolahanCreate:
+      type: object
+      properties:
+        id_jenis_olahan:
+          type: integer
+        id_pic:
+          type: integer
+        bahan_baku:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/BahanBakuInput'
+      required:
+      - id_jenis_olahan
+      - id_pic
+      - bahan_baku
+    Pengolahan:
+      type: object
+      properties:
+        id_olah_sampah:
+          type: integer
+        id_jenis_olahan:
+          type: integer
+        nama_olahan:
+          type: string
+        id_pic:
+          type: integer
+        nama_pic:
+          type: string
+        id_admin:
+          type: integer
+        status:
+          type: string
+          enum:
+          - dalam_pengolahan
+          - selesai_diolah
+        tgl_mulai:
+          type: string
+          format: date-time
+        tgl_selesai:
+          type: string
+          format: date-time
+          nullable: true
+    BahanBaku:
+      type: object
+      properties:
+        id_detail_pengolahan_sampah:
+          type: integer
+        id_komposisi:
+          type: integer
+        nama_sampah:
+          type: string
+        berat_digunakan:
+          type: number
+    PengolahanDetail:
+      allOf:
+      - $ref: '#/components/schemas/Pengolahan'
+      - type: object
+        properties:
+          bahan_baku:
+            type: array
+            items:
+              $ref: '#/components/schemas/BahanBaku'
+    Pic:
+      type: object
+      properties:
+        id_pic:
+          type: integer
+        nama:
+          type: string
+        nomor_wa:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    PicInput:
+      type: object
+      properties:
+        nama:
+          type: string
+        nomor_wa:
+          type: string
+      required:
+      - nama
+      - nomor_wa
+    HasilOlahan:
+      type: object
+      properties:
+        id_hasilolahan:
+          type: integer
+        id_olah_sampah:
+          type: integer
+        nama_olahan:
+          type: string
+        berat_hasil_olahan:
+          type: number
+        nilai_jual:
+          type: number
+        status_publikasi:
+          type: string
+          enum:
+          - belum_terbit
+          - terbit
+        tanggal_direkap:
+          type: string
+          format: date-time
+          nullable: true
+    HasilOlahanInput:
+      type: object
+      properties:
+        id_olah_sampah:
+          type: integer
+        berat_hasil_olahan:
+          type: number
+          minimum: 0
+        nilai_jual:
+          type: number
+          minimum: 0
+      required:
+      - id_olah_sampah
+      - berat_hasil_olahan
+      - nilai_jual
+    JenisOlahan:
+      type: object
+      properties:
+        id_jenis_olahan:
+          type: integer
+        nama_olahan:
+          type: string
+        tarif_nilai_olahan:
+          type: number
+        deskripsi:
+          type: string
+        satuan_massa:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    JenisOlahanInput:
+      type: object
+      properties:
+        nama_olahan:
+          type: string
+        tarif_nilai_olahan:
+          type: number
+          minimum: 0
+        deskripsi:
+          type: string
+        satuan_massa:
+          type: string
+      required:
+      - nama_olahan
+      - tarif_nilai_olahan
+      - satuan_massa
+    Komposisi:
+      type: object
+      properties:
+        id_komposisi:
+          type: integer
+        id_jenis_olahan:
+          type: integer
+        id_jenis_sampah:
+          type: integer
+        nama_sampah:
+          type: string
+    KomposisiInput:
+      type: object
+      properties:
+        id_jenis_sampah:
+          type: integer
+      required:
+      - id_jenis_sampah
+    Admin:
+      type: object
+      properties:
+        id_admin:
+          type: integer
+        nama:
+          type: string
+        username:
+          type: string
+        role:
+          type: string
+          enum:
+          - admin
+          - super_admin
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    AdminCreate:
+      type: object
+      properties:
+        nama:
+          type: string
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+        konfirmasi_password:
+          type: string
+          format: password
+      required:
+      - nama
+      - username
+      - password
+      - konfirmasi_password
+    AuditLog:
+      type: object
+      properties:
+        id_log:
+          type: integer
+        id_admin:
+          type: integer
+        nama_admin:
+          type: string
+        aksi:
+          type: string
+          enum:
+          - tambah
+          - ubah
+          - hapus
+        entitas:
+          type: string
+        id_entitas:
+          type: integer
+        data_lama:
+          type: object
+          nullable: true
+        data_baru:
+          type: object
+          nullable: true
+        keterangan:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+security:
+- bearerAuth: []

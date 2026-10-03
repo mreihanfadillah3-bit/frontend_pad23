@@ -1,0 +1,28 @@
+.admin-layout { display: flex; min-height: 100vh; }
+
+/* Sidebar */
+.bar { width: 240px; padding: 24px 16px; background: #fff; display: flex; flex-direction: column; }
+.bar-logo { display: flex; flex-direction: column; margin-bottom: 32px; }
+.bar-logo strong { font-size: 26px; color: #111; }
+.bar-logo strong span { color: #1f6b3f; }
+.bar-logo small { font-size: 10px; color: #111; }
+.bar-menu { display: flex; flex-direction: column; gap: 4px; }
+.bar-link { padding: 12px 14px; color: #777; text-decoration: none; font-weight: 600; border-radius: 8px; }
+.bar-link:hover { background: #f3f4f6; }
+.bar-link.active { color: #1f6b3f; }
+.bar-logout { margin-top: auto; padding: 12px 14px; text-align: left; background: none; border: 0; color: #777; font-weight: 600; cursor: pointer; }
+
+/* Area kanan */
+.admin-main { flex: 1; display: flex; flex-direction: column; background: linear-gradient(to top right, #2b6b48, #dfe5e0); }
+.header { display: flex; justify-content: space-between; align-items: center; padding: 24px 32px; }
+.header h1 { margin: 0; font-size: 28px; color: #111; }
+.header h1 span { color: #1f6b3f; }
+.header-actions { display: flex; align-items: center; gap: 12px; padding: 8px 12px; background: #fff; border-radius: 999px; }
+.header-bell { background: none; border: 0; font-size: 20px; cursor: pointer; }
+.header-avatar { width: 36px; height: 36px; border-radius: 50%; background: #8a8a8a; }
+.admin-content { padding: 0 32px 32px; }
+
+/* Tab di dalam halaman Pengaturan */
+.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.tab-link { padding: 8px 14px; background: rgba(255,255,255,0.7); border-radius: 999px; color: #333; text-decoration: none; font-weight: 600; }
+.tab-link.active { background: #fff; color: #1f6b3f; }

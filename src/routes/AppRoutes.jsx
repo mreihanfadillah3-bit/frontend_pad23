@@ -37,7 +37,7 @@ export default function AppRoutes() {
           <Route path="/hasil-olahan" element={<HasilOlahanPage />} />
 
           <Route path="/pengaturan" element={<PengaturanLayout />}>
-            <Route index element={<Navigate to="data-warga" replace />} />
+            <Route index element={<Navigate to="data-sampah-olahan" replace />} />
             <Route path="data-warga" element={<DataWargaPage />} />
             <Route path="data-sampah-olahan" element={<DataSampahOlahanPage />} />
             <Route path="pic-pengolahan" element={<PicPengolahanPage />} />

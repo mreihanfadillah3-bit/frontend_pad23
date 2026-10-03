@@ -1,0 +1,7 @@
+.modal-backdrop { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.4); backdrop-filter: blur(8px); z-index: 100; }
+.modal { width: 480px; max-width: 90vw; padding: 24px; background: #fff; border-radius: 16px; box-shadow: 0 4px 24px rgba(0,0,0,0.15); }
+.modal h2 { margin: 0 0 16px; padding-bottom: 12px; border-bottom: 1px solid #999; font-size: 28px; }
+.modal label { display: block; margin-bottom: 16px; font-weight: 700; }
+.modal input, .modal select { display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 14px; border: 0; border-radius: 8px; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.15); font: inherit; }
+.modal-error { color: #b91c1c; margin: 0 0 12px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 12px; }

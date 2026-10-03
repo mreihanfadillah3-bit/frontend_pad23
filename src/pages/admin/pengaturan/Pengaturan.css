@@ -1,0 +1,22 @@
+.set-title { margin: 0 0 16px; font-size: 40px; }
+.set-wrap { display: flex; gap: 24px; padding: 24px; background: #fff; border-radius: 24px; }
+.set-menu { width: 260px; display: flex; flex-direction: column; gap: 12px; }
+.set-menu-link { padding: 14px; text-align: center; font-weight: 700; color: #111; text-decoration: none; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.set-menu-link.active { background: #a8c3b1; box-shadow: none; }
+.set-content { flex: 1; display: flex; flex-direction: column; gap: 24px; min-width: 0; }
+
+.set-card { padding: 24px; background: #fff; border-radius: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.set-card-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 16px; border-bottom: 1px solid #999; margin-bottom: 16px; }
+.set-card-head h2 { margin: 0; font-size: 36px; }
+
+.set-table { width: 100%; border-collapse: collapse; }
+.set-table th { padding: 14px; text-align: left; background: #a8c3b1; }
+.set-table th:first-child { border-radius: 8px 0 0 8px; }
+.set-table th:last-child { border-radius: 0 8px 8px 0; }
+.set-table td { padding: 16px 14px; }
+.set-actions { display: flex; gap: 12px; }
+
+.btn-soft { padding: 10px 16px; font: inherit; font-weight: 700; background: #fff; border: 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; }
+.btn-soft:disabled { opacity: 0.6; cursor: wait; }
+.btn-green { color: #1f6b3f; }
+.set-error { padding: 12px; color: #b91c1c; background: #fee2e2; border-radius: 8px; }

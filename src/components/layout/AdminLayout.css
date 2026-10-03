@@ -21,8 +21,3 @@
 .header-bell { background: none; border: 0; font-size: 20px; cursor: pointer; }
 .header-avatar { width: 36px; height: 36px; border-radius: 50%; background: #8a8a8a; }
 .admin-content { padding: 0 32px 32px; }
-
-/* Tab di dalam halaman Pengaturan */
-.tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-.tab-link { padding: 8px 14px; background: rgba(255,255,255,0.7); border-radius: 999px; color: #333; text-decoration: none; font-weight: 600; }
-.tab-link.active { background: #fff; color: #1f6b3f; }

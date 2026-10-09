@@ -1,4 +1,5 @@
-.set-title { margin: 0 0 16px; font-size: 40px; }
+.set-header { margin-bottom: 24px;}
+.set-header p { color: #000; font-weight: 600; }
 .set-wrap { display: flex; gap: 24px; padding: 24px; background: #fff; border-radius: 24px; }
 .set-menu { width: 260px; display: flex; flex-direction: column; gap: 12px; }
 .set-menu-link { padding: 14px; text-align: center; font-weight: 700; color: #111; text-decoration: none; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
@@ -10,7 +11,7 @@
 .set-card-head h2 { margin: 0; font-size: 36px; }
 
 .set-table { width: 100%; border-collapse: collapse; }
-.set-table th { padding: 14px; text-align: left; background: #a8c3b1; }
+.set-table th { padding: 14px; text-align: center; background: #a8c3b1; color:#000;}
 .set-table th:first-child { border-radius: 8px 0 0 8px; }
 .set-table th:last-child { border-radius: 0 8px 8px 0; }
 .set-table td { padding: 16px 14px; }
@@ -18,5 +19,5 @@
 
 .btn-soft { padding: 10px 16px; font: inherit; font-weight: 700; background: #fff; border: 0; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); cursor: pointer; }
 .btn-soft:disabled { opacity: 0.6; cursor: wait; }
-.btn-green { color: #1f6b3f; }
+.btn-black { color: #000; }
 .set-error { padding: 12px; color: #b91c1c; background: #fee2e2; border-radius: 8px; }

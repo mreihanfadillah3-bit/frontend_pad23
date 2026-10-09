@@ -32,6 +32,12 @@ export default function DashboardPage() {
 
   return (
     <div className="dash">
+      <div className="dash-header">
+        <h1>Dashboard</h1>
+        <p>Ringkasan status operasional dan aktivitas<br />
+          pengelolaan sampah hari ini</p>
+      </div>
+      
       <div className="dash-stats">
         <div className="card stat">
           <strong>{data.status_operasional === "buka" ? "Buka" : "Tutup"}</strong>

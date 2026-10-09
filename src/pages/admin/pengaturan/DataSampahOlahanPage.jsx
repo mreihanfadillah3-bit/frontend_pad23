@@ -49,7 +49,7 @@ export default function DataSampahOlahanPage() {
       <section className="set-card">
         <div className="set-card-head">
           <h2>Jenis Sampah</h2>
-          <button className="btn-soft btn-green" onClick={() => setPopup({ type: "sampah", item: null })}>
+          <button className="btn-soft btn-black" onClick={() => setPopup({ type: "sampah", item: null })}>
             Tambah Jenis Sampah +
           </button>
         </div>
@@ -84,7 +84,7 @@ export default function DataSampahOlahanPage() {
       <section className="set-card">
         <div className="set-card-head">
           <h2>Jenis Olahan</h2>
-          <button className="btn-soft btn-green" onClick={() => setPopup({ type: "olahan", item: null })}>
+          <button className="btn-soft btn-black" onClick={() => setPopup({ type: "olahan", item: null })}>
             Tambah Jenis Olahan +
           </button>
         </div>

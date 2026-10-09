@@ -22,7 +22,12 @@ export default function PengaturanLayout() {
 
   return (
     <div>
-      <h2 className="set-title">Pengaturan</h2>
+      <div className="set-header">
+        <h1>Pengaturan</h1>
+        <p>Kelola data master sistem: data sampah, data warga, data PIC,<br />
+          status operasional, dan kelola password.</p>
+      </div>
+
       <div className="set-wrap">
         <nav className="set-menu">
           {items.map((m) => (

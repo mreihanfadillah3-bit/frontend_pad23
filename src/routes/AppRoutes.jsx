@@ -43,13 +43,13 @@ export default function AppRoutes() {
             <Route path="pic-pengolahan" element={<PicPengolahanPage />} />
             <Route path="status-operasional" element={<StatusOperasionalPage />} />
             <Route path="ubah-password" element={<UbahPasswordPage />} />
+          </Route>
 
-            {/* Khusus super admin */}
-            <Route element={<ProtectedRoute roles={["super_admin"]} />}>
+          {/* Khusus super admin */}
+            {/*<Route element={<ProtectedRoute roles={["super_admin"]} />}>
               <Route path="kelola-admin" element={<KelolaAdminPage />} />
               <Route path="aktivitas-admin" element={<AktivitasAdminPage />} />
-            </Route>
-          </Route>
+            </Route>*/}
         </Route>
       </Route>
     </Routes>

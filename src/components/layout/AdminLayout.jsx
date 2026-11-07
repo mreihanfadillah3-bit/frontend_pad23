@@ -1,15 +1,17 @@
 import { Outlet } from "react-router-dom";
 import Bar from "./Bar";
 import Header from "./Header";
-import "./AdminLayout.css";
 
 export default function AdminLayout() {
   return (
-    <div className="admin-layout">
+    <div className="flex h-screen overflow-hidden">
+      {/* Sidebar */}
       <Bar />
-      <div className="admin-main">
+
+      {/* Right side: header + scrollable content */}
+      <div className="flex flex-col flex-1 overflow-hidden">
         <Header />
-        <main className="admin-content">
+        <main className="flex-1 overflow-y-auto">
           <Outlet />
         </main>
       </div>

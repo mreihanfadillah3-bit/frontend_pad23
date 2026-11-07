@@ -13,3 +13,7 @@ export function formatError(err) {
   if (err?.errors) return Object.values(err.errors).flat().join(" ");
   return err?.message || "Terjadi kesalahan";
 }
+
+export function formatKg(angka) {
+  return `${Number(angka ?? 0).toLocaleString("id-ID")} kg`;
+}

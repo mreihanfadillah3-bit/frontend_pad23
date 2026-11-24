@@ -1,3 +1,5 @@
+import OlahAdminPage from "./OlahAdminPage";
+
 export default function AktivitasAdminPage() {
-  return <h1>Aktivitas Admin</h1>;
+  return <OlahAdminPage />;
 }

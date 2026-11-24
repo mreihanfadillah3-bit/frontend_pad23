@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { MdVisibility, MdVisibilityOff } from "react-icons/md";
+import { changePassword } from "../../../services/authService";
+import { formatError } from "../../../utils/format";
 
 const EMPTY = { lama: "", baru: "", konfirmasi: "" };
 
@@ -42,24 +44,24 @@ export default function UbahPasswordPage() {
     setError("");
     setSuccess("");
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setSuccess("Password berhasil diubah.");
+      const res = await changePassword(form.lama, form.baru, form.konfirmasi);
+      setSuccess(res?.message || "Password berhasil diubah.");
       setForm(EMPTY);
     } catch (err) {
-      setError("Gagal mengubah password. Coba lagi.");
+      setError(formatError(err) || "Gagal mengubah password. Coba lagi.");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6">
+    <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-4 sm:p-6 max-w-full overflow-hidden">
       {/* Header with Divider */}
       <div className="pb-4 border-b border-[#DDE2DF] mb-6">
-        <h2 className="text-xl font-bold text-[#14201A] font-jakarta">
+        <h2 className="text-lg sm:text-xl font-bold text-[#14201A] font-jakarta">
           Ubah Password
         </h2>
-        <p className="mt-0.5 text-sm text-[#5B6B61]">
+        <p className="mt-0.5 text-xs sm:text-sm text-[#5B6B61]">
           Perbarui password secara berkala untuk menjaga keamanan akun Anda.
         </p>
       </div>
@@ -166,7 +168,7 @@ export default function UbahPasswordPage() {
         <div className="border-t border-[#DDE2DF] pt-5 mt-4 flex justify-end">
           <button
             type="submit"
-            className="px-8 py-2.5 bg-[#1F6B3F] text-white text-sm font-semibold rounded-xl hover:bg-[#185733] transition-colors disabled:opacity-60"
+            className="w-full sm:w-auto px-8 py-2.5 bg-[#1F6B3F] text-white text-sm font-semibold rounded-xl hover:bg-[#185733] transition-colors disabled:opacity-60 cursor-pointer text-center"
             disabled={saving}
           >
             {saving ? "Menyimpan..." : "Simpan"}

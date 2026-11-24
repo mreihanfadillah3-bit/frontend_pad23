@@ -16,8 +16,7 @@ import DataSampahOlahanPage from "../pages/admin/pengaturan/DataSampahOlahanPage
 import PicPengolahanPage from "../pages/admin/pengaturan/PicPengolahanPage";
 import StatusOperasionalPage from "../pages/admin/pengaturan/StatusOperasionalPage";
 import UbahPasswordPage from "../pages/admin/pengaturan/UbahPasswordPage";
-import KelolaAdminPage from "../pages/super-admin/KelolaAdminPage";
-import AktivitasAdminPage from "../pages/super-admin/AktivitasAdminPage";
+import OlahAdminPage from "../pages/super-admin/OlahAdminPage";
 
 export default function AppRoutes() {
   return (
@@ -36,6 +35,13 @@ export default function AppRoutes() {
           <Route path="/olah-sampah" element={<OlahSampahPage />} />
           <Route path="/hasil-olahan" element={<HasilOlahanPage />} />
 
+          {/* Khusus super admin */}
+          <Route element={<ProtectedRoute roles={["super_admin"]} />}>
+            <Route path="/olah-admin" element={<OlahAdminPage />} />
+            <Route path="/kelola-admin" element={<Navigate to="/olah-admin" replace />} />
+            <Route path="/aktivitas-admin" element={<Navigate to="/olah-admin?tab=aktivitas" replace />} />
+          </Route>
+
           <Route path="/pengaturan" element={<PengaturanLayout />}>
             <Route index element={<Navigate to="data-sampah-olahan" replace />} />
             <Route path="data-warga" element={<DataWargaPage />} />
@@ -44,12 +50,6 @@ export default function AppRoutes() {
             <Route path="status-operasional" element={<StatusOperasionalPage />} />
             <Route path="ubah-password" element={<UbahPasswordPage />} />
           </Route>
-
-          {/* Khusus super admin */}
-            {/*<Route element={<ProtectedRoute roles={["super_admin"]} />}>
-              <Route path="kelola-admin" element={<KelolaAdminPage />} />
-              <Route path="aktivitas-admin" element={<AktivitasAdminPage />} />
-            </Route>*/}
         </Route>
       </Route>
     </Routes>

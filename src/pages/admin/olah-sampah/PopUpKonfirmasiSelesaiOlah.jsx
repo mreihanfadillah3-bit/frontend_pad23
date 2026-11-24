@@ -1,11 +1,22 @@
 import { LuCheck } from "react-icons/lu";
 
+const formatBatchCode = (id) => {
+  if (!id) return "";
+  return typeof id === "number" || /^\d+$/.test(id)
+    ? `#O-A${String(id).padStart(2, "0")}`
+    : String(id);
+};
+
 export default function PopUpKonfirmasiSelesaiOlah({
   batch,
   onClose,
   onConfirm,
 }) {
   if (!batch) return null;
+
+  const idBatch = batch.id_olah_sampah ?? batch.id;
+  const namaOlahan = batch.nama_olahan ?? batch.jenisOlahan ?? "Olahan Sampah";
+  const namaPic = batch.nama_pic ?? batch.pic ?? "—";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
@@ -29,18 +40,20 @@ export default function PopUpKonfirmasiSelesaiOlah({
         </p>
 
         {/* Batch Details Card */}
-        <div className="w-full bg-[#F8FAF9] border border-[#E8ECE9] rounded-xl p-4 text-left text-xs text-[#3F4B44] space-y-1 mb-6">
+        <div className="w-full bg-[#F8FAF9] border border-[#E8ECE9] rounded-xl p-4 text-left text-xs text-[#3F4B44] space-y-1.5 mb-6">
           <p>
             <span className="text-[#5B6B61]">ID Batch:</span>{" "}
-            <span className="font-semibold text-[#14201A]">{batch.id}</span>
+            <span className="font-semibold text-[#14201A]">
+              {formatBatchCode(idBatch)}
+            </span>
           </p>
           <p>
             <span className="text-[#5B6B61]">Jenis Olahan:</span>{" "}
-            <span className="font-semibold text-[#14201A]">{batch.jenisOlahan}</span>
+            <span className="font-semibold text-[#14201A]">{namaOlahan}</span>
           </p>
           <p>
             <span className="text-[#5B6B61]">PIC:</span>{" "}
-            <span className="font-semibold text-[#14201A]">{batch.pic}</span>
+            <span className="font-semibold text-[#14201A]">{namaPic}</span>
           </p>
         </div>
 
@@ -48,14 +61,14 @@ export default function PopUpKonfirmasiSelesaiOlah({
         <div className="flex items-center justify-center gap-3 w-full">
           <button
             type="button"
-            className="px-6 py-2.5 text-sm font-semibold text-[#14201A] bg-white border border-[#DDE2DF] rounded-xl hover:bg-[#F6F8F7] transition-colors"
+            className="px-6 py-2.5 text-sm font-semibold text-[#14201A] bg-white border border-[#DDE2DF] rounded-xl hover:bg-[#F6F8F7] transition-colors cursor-pointer"
             onClick={onClose}
           >
             Batal
           </button>
           <button
             type="button"
-            className="px-6 py-2.5 text-sm font-semibold text-white bg-[#1F6B3F] rounded-xl hover:bg-[#185733] transition-colors"
+            className="px-6 py-2.5 text-sm font-semibold text-white bg-[#1F6B3F] rounded-xl hover:bg-[#185733] transition-colors cursor-pointer"
             onClick={onConfirm}
           >
             Catat Hasil Olahan
@@ -65,4 +78,5 @@ export default function PopUpKonfirmasiSelesaiOlah({
     </div>
   );
 }
+
 

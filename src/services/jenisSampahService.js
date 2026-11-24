@@ -1,8 +1,14 @@
 import { apiRequest } from "./apiClient";
 
+function toArray(val) {
+  if (Array.isArray(val)) return val;
+  if (Array.isArray(val?.data)) return val.data;
+  return [];
+}
+
 export async function getJenisSampah() {
   const result = await apiRequest("/jenis-sampah");
-  return result.data;
+  return toArray(result.data ?? result);
 }
 
 export async function createJenisSampah(payload) {

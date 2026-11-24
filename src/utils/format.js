@@ -10,7 +10,16 @@ export function formatRupiah(angka) {
 
 // Mengubah error dari apiClient jadi teks untuk ditampilkan
 export function formatError(err) {
-  if (err?.errors) return Object.values(err.errors).flat().join(" ");
+  if (err?.errors) {
+    // Gabungkan semua pesan error per field menjadi satu kalimat
+    const fieldMessages = Object.entries(err.errors)
+      .map(([field, msgs]) => {
+        const msgStr = Array.isArray(msgs) ? msgs.join(", ") : String(msgs);
+        return `${field}: ${msgStr}`;
+      })
+      .join(" | ");
+    return fieldMessages || err?.message || "Terjadi kesalahan";
+  }
   return err?.message || "Terjadi kesalahan";
 }
 

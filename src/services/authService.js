@@ -3,10 +3,10 @@ import { apiRequest, setToken, clearToken } from "./apiClient";
 export async function login(username, password) {
   const result = await apiRequest("/auth/login", {
     method: "POST",
-    body: { username, password },
+    body: { username, password, device_name: "web" },
   });
   setToken(result.data.token);
-  return result.data; // {token, role, admin}
+  return result.data; // {token, token_type, expires_at, admin}
 }
 
 export async function logout() {

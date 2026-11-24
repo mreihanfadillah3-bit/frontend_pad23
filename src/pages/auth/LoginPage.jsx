@@ -33,7 +33,7 @@ export default function LoginPage() {
         background: "linear-gradient(180deg, #F4FAF6 0%, #5F9C78 100%)",
       }}
     >
-      <div className="w-full max-w-[460px] bg-white rounded-3xl shadow-xl px-10 py-10">
+      <div className="w-full max-w-[460px] bg-white rounded-3xl shadow-xl px-6 sm:px-10 py-8 sm:py-10">
         {/* Brand Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight font-jakarta text-[#14201A]">
@@ -102,6 +102,8 @@ export default function LoginPage() {
           >
             {submitting ? "Memproses..." : "Masuk"}
           </button>
+
+
         </form>
 
         {/* Divider & Footer badge */}

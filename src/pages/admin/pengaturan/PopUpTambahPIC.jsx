@@ -1,12 +1,14 @@
 import { useState } from "react";
 import Modal from "../../../components/common/Modal";
+import { formatError } from "../../../utils/format";
 
 export default function PopupTambahPic({ onClose, onSave, initialData = null }) {
   const isEdit = Boolean(initialData);
 
   const [form, setForm] = useState({
     nama: initialData?.nama ?? "",
-    whatsapp: initialData?.whatsapp ?? "",
+    // BE menyimpan field ini sebagai nomor_wa
+    nomor_wa: initialData?.nomor_wa ?? initialData?.whatsapp ?? "",
   });
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
@@ -23,13 +25,13 @@ export default function PopupTambahPic({ onClose, onSave, initialData = null }) 
     e.preventDefault();
 
     const nama = form.nama.trim();
-    const whatsapp = form.whatsapp.trim();
+    const nomor_wa = form.nomor_wa.trim();
 
-    if (!nama || !whatsapp) {
+    if (!nama || !nomor_wa) {
       setError("Nama dan WhatsApp wajib diisi.");
       return;
     }
-    if (!/^[0-9+\-\s]{9,20}$/.test(whatsapp)) {
+    if (!/^[0-9+\-\s]{9,20}$/.test(nomor_wa)) {
       setError("Nomor WhatsApp tidak valid. Gunakan nomor berawalan 08 atau +62.");
       return;
     }
@@ -37,9 +39,9 @@ export default function PopupTambahPic({ onClose, onSave, initialData = null }) 
     setSaving(true);
     setError("");
     try {
-      await onSave({ nama, whatsapp });
+      await onSave({ nama, nomor_wa });
     } catch (err) {
-      setError("Gagal menyimpan data. Coba lagi.");
+      setError(formatError(err) || "Gagal menyimpan data. Coba lagi.");
       setSaving(false);
     }
   }
@@ -72,8 +74,8 @@ export default function PopupTambahPic({ onClose, onSave, initialData = null }) 
           </label>
           <input
             className="modal-input"
-            name="whatsapp"
-            value={form.whatsapp}
+            name="nomor_wa"
+            value={form.nomor_wa}
             onChange={handleChange}
             placeholder="0821 2345 6789"
             required

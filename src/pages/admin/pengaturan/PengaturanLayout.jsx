@@ -1,6 +1,5 @@
-import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { NavLink, Outlet } from "react-router-dom";
 import { MdChevronRight } from "react-icons/md";
-import { useAuth } from "../../../context/AuthContext";
 
 const menu = [
   { to: "data-sampah-olahan", label: "Jenis Sampah/Olahan" },
@@ -10,15 +9,7 @@ const menu = [
   { to: "ubah-password", label: "Password" },
 ];
 
-const menuSuperAdmin = [
-  { to: "kelola-admin", label: "Kelola Admin" },
-  { to: "aktivitas-admin", label: "Aktivitas Admin" },
-];
-
 export default function PengaturanLayout() {
-  const { user } = useAuth();
-  const items = user?.role === "super_admin" ? [...menu, ...menuSuperAdmin] : menu;
-
   return (
     <div
       className="min-h-full"
@@ -26,28 +17,28 @@ export default function PengaturanLayout() {
         background: "linear-gradient(180deg, #F4FAF6 0%, #5F9C78 100%)",
       }}
     >
-      <div className="max-w-6xl mx-auto px-8 py-8 flex flex-col gap-6">
+      <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6 sm:py-8 flex flex-col gap-6">
         {/* Page Header */}
         <div>
-          <h1 className="text-3xl font-extrabold text-[#14201A] font-jakarta">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-[#14201A] font-jakarta">
             Pengaturan
           </h1>
-          <p className="mt-1 text-sm text-[#14201A]">
+          <p className="mt-1 text-xs sm:text-sm text-[#14201A]">
             Kelola data sampah, pengolah, layanan, dan keamanan akun SumberArum
           </p>
         </div>
 
-        {/* Layout: Sidebar Menu + Content */}
-        <div className="flex gap-6 items-start">
-          {/* Sidebar Menu */}
-          <nav className="w-64 bg-white rounded-2xl border border-[#DDE2DF] p-3 shadow-sm flex flex-col gap-1 shrink-0">
-            {items.map((m) => (
+        {/* Layout: Responsive Tabs / Sidebar + Content */}
+        <div className="flex flex-col lg:flex-row gap-6 items-stretch lg:items-start">
+          {/* Menu: Horizontal scrollable tabs on mobile/tablet/zoom-in, vertical sidebar on desktop */}
+          <nav className="w-full lg:w-64 bg-white rounded-2xl border border-[#DDE2DF] p-2 lg:p-3 shadow-sm flex flex-row lg:flex-col gap-1.5 overflow-x-auto shrink-0">
+            {menu.map((m) => (
               <NavLink
                 key={m.to}
                 to={m.to}
                 className={({ isActive }) =>
                   [
-                    "flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-colors",
+                    "shrink-0 flex items-center justify-between px-3.5 py-2.5 lg:px-4 lg:py-3 rounded-xl text-xs lg:text-sm font-medium transition-colors whitespace-nowrap",
                     isActive
                       ? "bg-[#E3F1E8] text-[#1F6B3F] font-semibold"
                       : "text-[#3F4B44] hover:bg-[#F6F8F7]",
@@ -58,7 +49,7 @@ export default function PengaturanLayout() {
                   <>
                     <span>{m.label}</span>
                     {isActive && (
-                      <MdChevronRight size={18} className="text-[#1F6B3F] shrink-0" />
+                      <MdChevronRight size={18} className="text-[#1F6B3F] shrink-0 hidden lg:inline-block" />
                     )}
                   </>
                 )}
@@ -67,7 +58,7 @@ export default function PengaturanLayout() {
           </nav>
 
           {/* Main Content Area */}
-          <div className="flex-1 flex flex-col gap-6 min-w-0">
+          <div className="flex-1 flex flex-col gap-6 min-w-0 w-full">
             <Outlet />
           </div>
         </div>

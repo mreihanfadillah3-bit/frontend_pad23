@@ -315,3 +315,12 @@
   border-color: #1f6b3f;
   box-shadow: 0 0 0 2px rgba(31, 107, 63, 0.12);
 }
+
+@media (max-width: 640px) {
+  .modal {
+    padding: 20px 16px;
+    width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}

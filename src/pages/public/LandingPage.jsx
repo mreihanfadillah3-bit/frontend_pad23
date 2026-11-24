@@ -97,7 +97,7 @@ export default function LandingPage() {
         const res = await getPublicDashboard({
           bulan: selectedMonth + 1,
           tahun: selectedYear,
-          mode_grafik: "bulan", // Selalu ambil 12 bulan (Januari - Desember) pada tahun yang dipilih
+          mode_grafik: filterMode, // Selalu ambil 12 bulan (Januari - Desember) pada tahun yang dipilih
         });
         if (isMounted && res) {
           setDashboardData(res);
@@ -268,7 +268,7 @@ export default function LandingPage() {
         )
       )
     : 0;
-  const yDomainMax = rawMax > 0 ? Math.ceil(rawMax / 50) * 50 : 300;
+  const yDomainMax = rawMax > 0 ? Math.ceil(rawMax) : 50;
   const yStep = Math.ceil(yDomainMax / 3 / 10) * 10 || 100;
   const yTicks = [0, yStep, yStep * 2, yDomainMax];
 
@@ -966,17 +966,17 @@ export default function LandingPage() {
                       }
                     }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#EDF1EE" />
+                    <CartesianGrid vertical={false} stroke="#DDE2DF" />
                     <XAxis
                       dataKey="name"
                       tickLine={false}
-                      axisLine={{ stroke: "#EDF1EE" }}
+                      axisLine={{ stroke: "#DDE2DF" }}
                       tick={{ fill: "#5B6B61", fontSize: 12 }}
                     />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
-                      tick={{ fill: "#8E9B93", fontSize: 11 }}
+                      tick={{ fill: "#5B6B61", fontSize: 11 }}
                       domain={[0, yDomainMax]}
                       ticks={yTicks}
                     />

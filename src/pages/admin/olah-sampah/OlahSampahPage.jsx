@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { LuCheck, LuTrash2 } from "react-icons/lu";
 import PopUpKonfirmasiSelesaiOlah from "./PopUpKonfirmasiSelesaiOlah";
+import PopUpKonfirmasiHapus from "../../../components/common/PopUpKonfirmasiHapus";
 import { formatKg, formatError } from "../../../utils/format";
 import {
   getMaterialSiapOlah,
@@ -59,6 +60,11 @@ export default function OlahSampahPage() {
 
   // Modal konfirmasi selesai
   const [selectedBatchForComplete, setSelectedBatchForComplete] = useState(null);
+
+  // Modal konfirmasi hapus batch
+  const [batchToDelete, setBatchToDelete] = useState(null);
+  const [deletingBatch, setDeletingBatch] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
 
   // 1. Muat Material Siap Olah
   const loadMaterial = useCallback(async () => {
@@ -247,12 +253,16 @@ export default function OlahSampahPage() {
 
   // Hapus Batch Sedang Diolah
   async function handleHapusBatch(idOlahSampah) {
-    if (!window.confirm("Yakin ingin menghapus batch pengolahan ini?")) return;
+    setDeletingBatch(true);
+    setDeleteError("");
     try {
       await deletePengolahan(idOlahSampah);
+      setBatchToDelete(null);
       await Promise.all([loadMaterial(), loadBatchList(batchPage)]);
     } catch (err) {
-      alert(formatError(err) || "Gagal menghapus batch.");
+      setDeleteError(formatError(err) || "Gagal menghapus batch.");
+    } finally {
+      setDeletingBatch(false);
     }
   }
 
@@ -559,7 +569,10 @@ export default function OlahSampahPage() {
                             </button>
                             <button
                               type="button"
-                              onClick={() => handleHapusBatch(idOlah)}
+                              onClick={() => {
+                                setDeleteError("");
+                                setBatchToDelete(b);
+                              }}
                               className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Hapus batch"
                             >
@@ -583,6 +596,23 @@ export default function OlahSampahPage() {
           batch={selectedBatchForComplete}
           onClose={() => setSelectedBatchForComplete(null)}
           onConfirm={handleConfirmSelesai}
+        />
+      )}
+
+      {/* Pop Up Konfirmasi Hapus Batch */}
+      {batchToDelete && (
+        <PopUpKonfirmasiHapus
+          title="Hapus Batch Ini?"
+          subtitle="Batch yang dihapus tidak dapat dikembalikan"
+          details={[
+            { label: "ID Batch", value: formatBatchCode(batchToDelete.id_olah_sampah ?? batchToDelete.id) },
+            { label: "Jenis Olahan", value: batchToDelete.nama_olahan ?? batchToDelete.jenisOlahan ?? "—" },
+            { label: "PIC", value: batchToDelete.nama_pic ?? batchToDelete.pic ?? "—" },
+          ]}
+          loading={deletingBatch}
+          error={deleteError}
+          onClose={() => { setBatchToDelete(null); setDeleteError(""); }}
+          onConfirm={() => handleHapusBatch(batchToDelete.id_olah_sampah ?? batchToDelete.id)}
         />
       )}
     </div>

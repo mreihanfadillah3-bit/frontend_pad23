@@ -843,7 +843,7 @@ export default function DashboardPage() {
                     }
                   }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#DDE2DF" />
+                  <CartesianGrid vertical={false} stroke="#DDE2DF" />
                   <XAxis
                     dataKey="label"
                     tickLine={false}

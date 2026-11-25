@@ -38,6 +38,41 @@ const MONTHS = [
   "Juli","Agustus","September","Oktober","November","Desember",
 ];
 
+const hasPeriodData = (entry) =>
+  [
+    "sampah_terkumpul",
+    "sampah_terolah",
+    "hasil_olahan",
+    "jumlah_setoran",
+    "jumlah_warga",
+    "setoran",
+    "warga",
+    "nilai_sampah",
+  ].some((key) => {
+    const value = entry?.[key];
+    return Number(
+      typeof value === "object"
+        ? value?.berat ?? value?.jumlah_setoran ?? value?.jumlah
+        : value
+    ) > 0;
+  });
+
+const getEntryYear = (entry) => {
+  const value = entry?.tahun ?? entry?.year ?? entry?.tanggal ?? entry?.date ?? entry?.label;
+  const match = String(value ?? "").match(/\b(?:19|20)\d{2}\b/);
+  return match ? Number(match[0]) : null;
+};
+
+const hasYearData = (dashboard, year) => {
+  const chartData = Array.isArray(dashboard?.chart_data) ? dashboard.chart_data : [];
+  const rowsWithYear = chartData.filter((entry) => getEntryYear(entry) !== null);
+  const yearRows = rowsWithYear.length
+    ? rowsWithYear.filter((entry) => getEntryYear(entry) === year)
+    : chartData;
+
+  return yearRows.some(hasPeriodData);
+};
+
 /* ─── sub-components ────────────────────────────────────── */
 
 /** Card putih dengan shadow ringan */
@@ -152,13 +187,22 @@ export default function DashboardPage() {
   /* ── chart popup & dropdown refs & states ── */
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [isPeriodFilterOpen, setIsPeriodFilterOpen] = useState(false);
+  const [yearAvailability, setYearAvailability] = useState({});
   const [hoveredData, setHoveredData] = useState(null);
   const [pinnedData, setPinnedData] = useState(null);
 
+  const isComponentMounted = useRef(true);
   const chartCardRef = useRef(null);
   const chartPopupRef = useRef(null);
   const monthPickerRef = useRef(null);
   const periodFilterRef = useRef(null);
+
+  useEffect(() => {
+    isComponentMounted.current = true;
+    return () => {
+      isComponentMounted.current = false;
+    };
+  }, []);
 
   // Close popups on click outside
   useEffect(() => {
@@ -250,6 +294,26 @@ export default function DashboardPage() {
     };
   }, [month, year, chartView, comparePrev, compareYear]);
 
+  useEffect(() => {
+    if (!isMonthPickerOpen || chartView !== "tahun") return;
+
+    [year, year + 1, year + 2].forEach((yr) => {
+      getDashboard({ tahun: yr, mode_grafik: "bulan" })
+        .then((yearData) => {
+          const hasData = hasYearData(yearData, yr);
+          if (isComponentMounted.current) {
+            setYearAvailability((prev) => ({ ...prev, [yr]: hasData }));
+          }
+        })
+        .catch((err) => {
+          console.warn(`Gagal memeriksa data tahun ${yr}:`, err);
+          if (isComponentMounted.current) {
+            setYearAvailability((prev) => ({ ...prev, [yr]: null }));
+          }
+        });
+    });
+  }, [isMonthPickerOpen, chartView, year]);
+
   if (error && !data) return (
     <div className="p-8 text-red-600 font-medium">{error}</div>
   );
@@ -283,6 +347,18 @@ export default function DashboardPage() {
   const nilaiSampah = Number(ringkasan.nilai_sampah ?? data.ringkasan_sampah_terkumpul?.nilai ?? 0);
 
   const chartData       = data.chart_data             ?? [];
+  const hasMonthData = (monthIdx) =>
+    chartData.some((entry, idx) => {
+      const entryMonth = entry.bulan
+        ? Number(entry.bulan) - 1
+        : (entry.monthIdx ?? idx);
+      return entryMonth === monthIdx && hasPeriodData(entry);
+    }) ||
+    (monthIdx === month &&
+      hasPeriodData({
+        ...ringkasan,
+        sampah_terkumpul: ringkasan.sampah_terkumpul_detail,
+      }));
   const lastUpdated     = data.last_updated
     ? new Date(data.last_updated).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })
     : new Date().toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
@@ -581,6 +657,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => {
                     setIsMonthPickerOpen(!isMonthPickerOpen);
+                    setYearAvailability({});
                     setIsPeriodFilterOpen(false);
                   }}
                   className="flex items-center gap-1.5 px-3 h-8 rounded-lg border border-[#DDE2DF]
@@ -600,41 +677,93 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between pb-3 border-b border-[#F0F2F1] mb-3">
                           <button
                             type="button"
-                            onClick={() => setYear((y) => y - 5)}
+                            onClick={() => {
+                              setYear((y) => y - 1);
+                              setYearAvailability({});
+                            }}
                             className="p-1.5 rounded-lg border border-[#DDE2DF] hover:bg-gray-50 text-[#3F4B44] cursor-pointer"
+                            aria-label="Tahun sebelumnya"
                           >
                             <LuChevronLeft size={16} />
                           </button>
-                          <span className="text-sm font-bold text-[#14201A] font-jakarta">Pilih Tahun</span>
+                          <span className="text-sm font-bold text-[#14201A] font-jakarta">{year}</span>
                           <button
                             type="button"
-                            onClick={() => setYear((y) => y + 5)}
+                            onClick={() => {
+                              setYear((y) => y + 1);
+                              setYearAvailability({});
+                            }}
                             className="p-1.5 rounded-lg border border-[#DDE2DF] hover:bg-gray-50 text-[#3F4B44] cursor-pointer"
+                            aria-label="Tahun berikutnya"
                           >
                             <LuChevronRight size={16} />
                           </button>
                         </div>
-                        <div className="grid grid-cols-3 gap-2">
-                          {[year - 2, year - 1, year, year + 1, year + 2, year + 3].map((yr) => {
+                        <div className="grid grid-cols-3 gap-2 mb-2">
+                          {[year, year + 1, year + 2].map((yr) => {
                             const isSelected = yr === year;
+                            const yearHasData = yearAvailability[yr] === true;
+                            const statusKnown = yearAvailability[yr] === true || yearAvailability[yr] === false;
+                            const yearStatus = yearHasData
+                              ? "ada data"
+                              : statusKnown
+                              ? "tidak ada data"
+                              : "status data belum diketahui";
                             return (
                               <button
                                 key={yr}
                                 type="button"
+                                disabled={yearAvailability[yr] === false}
                                 onClick={() => {
                                   setYear(yr);
                                   setIsMonthPickerOpen(false);
                                 }}
-                                className={`py-2 px-1 text-xs rounded-lg font-medium transition cursor-pointer text-center ${
+                                aria-label={`${yr}, ${yearStatus}`}
+                                title={statusKnown
+                                  ? (yearHasData ? "Ada data" : "Tidak ada data")
+                                  : "Memeriksa data"}
+                                className={`py-2 px-1 min-h-12 flex flex-col items-center justify-center gap-1 text-xs rounded-lg font-medium transition text-center ${
                                   isSelected
                                     ? "bg-[#1F6B3F] text-white font-semibold"
-                                    : "text-[#3F4B44] hover:bg-[#E3F1E8] hover:text-[#1F6B3F]"
+                                    : yearHasData
+                                    ? "text-[#3F4B44] hover:bg-[#E3F1E8] hover:text-[#1F6B3F] cursor-pointer"
+                                    : "text-[#C4CCC7] cursor-not-allowed"
                                 }`}
                               >
-                                {yr}
+                                <span>{yr}</span>
+                                <span
+                                  aria-hidden="true"
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    isSelected && yearHasData
+                                      ? "bg-white"
+                                      : yearHasData
+                                      ? "bg-[#1F6B3F]"
+                                      : "bg-transparent"
+                                  }`}
+                                />
                               </button>
                             );
                           })}
+                        </div>
+                        <div className="flex items-center gap-3 pt-3 mt-2 border-t border-[#F0F2F1] text-[11px] text-[#5B6B61]">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1F6B3F]" />
+                            Ada data
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#DDE2DF]" />
+                            Tidak ada data
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between pt-3 mt-2 border-t border-[#F0F2F1]">
+                          <span className="text-xs font-semibold text-[#1F6B3F]">Tahun</span>
+                          <button
+                            type="button"
+                            onClick={() => setIsMonthPickerOpen(false)}
+                            className="px-3 py-1 text-xs font-medium text-[#3F4B44] border border-[#DDE2DF] rounded-lg bg-white hover:bg-gray-50 transition cursor-pointer"
+                          >
+                            Tutup
+                          </button>
                         </div>
                       </div>
                     ) : (
@@ -660,24 +789,50 @@ export default function DashboardPage() {
                         <div className="grid grid-cols-3 gap-2">
                           {MONTHS.map((mName, idx) => {
                             const isSelected = month === idx;
+                            const monthHasData = hasMonthData(idx);
                             return (
                               <button
                                 key={mName}
                                 type="button"
+                                disabled={!monthHasData}
                                 onClick={() => {
                                   setMonth(idx);
                                   setIsMonthPickerOpen(false);
                                 }}
-                                className={`py-2 px-1 text-xs rounded-lg font-medium transition cursor-pointer text-center ${
+                                aria-label={`${mName}${monthHasData ? ", ada data" : ", tidak ada data"}`}
+                                title={monthHasData ? "Ada data" : "Tidak ada data"}
+                                className={`py-2 px-1 min-h-12 flex flex-col items-center justify-center gap-1 text-xs rounded-lg font-medium transition text-center ${
                                   isSelected
                                     ? "bg-[#1F6B3F] text-white font-semibold"
-                                    : "text-[#3F4B44] hover:bg-[#E3F1E8] hover:text-[#1F6B3F]"
+                                    : monthHasData
+                                    ? "text-[#3F4B44] hover:bg-[#E3F1E8] hover:text-[#1F6B3F] cursor-pointer"
+                                    : "text-[#C4CCC7] cursor-not-allowed"
                                 }`}
                               >
-                                {mName.slice(0, 3)}
+                                <span>{mName.slice(0, 3)}</span>
+                                <span
+                                  aria-hidden="true"
+                                  className={`w-1.5 h-1.5 rounded-full ${
+                                    isSelected && monthHasData
+                                      ? "bg-white"
+                                      : monthHasData
+                                      ? "bg-[#1F6B3F]"
+                                      : "bg-transparent"
+                                  }`}
+                                />
                               </button>
                             );
                           })}
+                        </div>
+                        <div className="flex items-center gap-3 pt-3 mt-2 border-t border-[#F0F2F1] text-[11px] text-[#5B6B61]">
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#1F6B3F]" />
+                            Ada data
+                          </span>
+                          <span className="flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#DDE2DF]" />
+                            Tidak ada data
+                          </span>
                         </div>
                       </div>
                     )}

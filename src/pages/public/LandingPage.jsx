@@ -39,6 +39,45 @@ const MONTH_SHORT = [
   "Jul", "Agu", "Sep", "Okt", "Nov", "Des"
 ];
 
+const hasPeriodData = (entry) =>
+  [
+    "sampah_terkumpul",
+    "sampah_terolah",
+    "hasil_olahan",
+    "terkumpul",
+    "terolah",
+    "hasilOlahan",
+    "jumlah_setoran",
+    "jumlah_warga",
+    "setoran",
+    "warga",
+    "nilai_sampah",
+  ].some((key) => {
+    const value = entry?.[key];
+    return Number(
+      typeof value === "object"
+        ? value?.berat ?? value?.jumlah_setoran ?? value?.jumlah
+        : value
+    ) > 0;
+  });
+
+const getEntryYear = (entry) => {
+  const value = entry?.tahun ?? entry?.year ?? entry?.tanggal ?? entry?.date ?? entry?.label;
+  const match = String(value ?? "").match(/\b(?:19|20)\d{2}\b/);
+  return match ? Number(match[0]) : null;
+};
+
+const hasYearData = (dashboard, year) => {
+  const series = dashboard?.grafik_perkembangan?.data;
+  const chartData = Array.isArray(series) ? series : [];
+  const rowsWithYear = chartData.filter((entry) => getEntryYear(entry) !== null);
+  const yearRows = rowsWithYear.length
+    ? rowsWithYear.filter((entry) => getEntryYear(entry) === year)
+    : chartData;
+
+  return yearRows.some(hasPeriodData);
+};
+
 export default function LandingPage() {
   // Navigation active tab
   const [activeNav, setActiveNav] = useState("beranda");
@@ -119,6 +158,8 @@ export default function LandingPage() {
   const [isMonthPickerOpen, setIsMonthPickerOpen] = useState(false);
   const [isPeriodFilterOpen, setIsPeriodFilterOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [yearAvailability, setYearAvailability] = useState({});
+  const isComponentMounted = useRef(true);
 
   // Chart popup state:
   // - hoveredData: active only while mouse is hovering over a bar/chart item
@@ -132,6 +173,33 @@ export default function LandingPage() {
   const chartCardRef = useRef(null);
   const chartPopupRef = useRef(null);
   const mobileMenuRef = useRef(null);
+
+  useEffect(() => {
+    isComponentMounted.current = true;
+    return () => {
+      isComponentMounted.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isMonthPickerOpen || filterMode !== "tahun") return;
+
+    [selectedYear, selectedYear + 1, selectedYear + 2].forEach((yr) => {
+      getPublicDashboard({ tahun: yr, mode_grafik: "bulan" })
+        .then((yearData) => {
+          const hasData = hasYearData(yearData, yr);
+          if (isComponentMounted.current) {
+            setYearAvailability((prev) => ({ ...prev, [yr]: hasData }));
+          }
+        })
+        .catch((err) => {
+          console.warn(`Gagal memeriksa data tahun ${yr}:`, err);
+          if (isComponentMounted.current) {
+            setYearAvailability((prev) => ({ ...prev, [yr]: null }));
+          }
+        });
+    });
+  }, [isMonthPickerOpen, filterMode, selectedYear]);
 
   // Click outside listener:
   // Closes month picker, period mode dropdown, mobile menu, and pinned chart popup when clicking outside
@@ -589,6 +657,7 @@ export default function LandingPage() {
                   onClick={(e) => {
                     e.stopPropagation();
                     setIsMonthPickerOpen(!isMonthPickerOpen);
+                    setYearAvailability({});
                     setIsPeriodFilterOpen(false);
                   }}
                   className="h-8 px-3.5 flex items-center gap-1.5 rounded-lg border border-[#DDE2DF] bg-white text-xs font-semibold text-[#14201A] hover:bg-[#F6F8F7] transition cursor-pointer"
@@ -603,66 +672,98 @@ export default function LandingPage() {
                     /* ── POP UP KETIKA MODE TAHUN: HANYA MENAMPILKAN PILIHAN TAHUN ── */
                     <div
                       onClick={(e) => e.stopPropagation()}
-                      className="absolute left-0 top-10 z-50 w-64 max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-[#DDE2DF] shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-150"
+                      className="absolute left-0 top-10 z-50 w-72 max-w-[calc(100vw-32px)] bg-white rounded-2xl border border-[#DDE2DF] shadow-2xl p-4 animate-in fade-in zoom-in-95 duration-150"
                     >
-                      <div className="flex items-center justify-between pb-2.5 mb-2.5 border-b border-[#F0F2F1]">
+                      <div className="flex items-center justify-between pb-3 mb-2.5 border-b border-[#F0F2F1]">
                         <button
                           type="button"
-                          onClick={() => setSelectedYear((y) => y - 3)}
-                          className="p-1 rounded-md text-[#5B6B61] hover:text-[#1F6B3F] hover:bg-[#F4FAF6] cursor-pointer"
+                          onClick={() => {
+                            setSelectedYear((y) => y - 1);
+                            setYearAvailability({});
+                          }}
+                          className="p-1.5 rounded-lg border border-[#DDE2DF] text-[#5B6B61] hover:text-[#1F6B3F] hover:bg-[#F4FAF6] cursor-pointer"
                           title="Tahun sebelumnya"
+                          aria-label="Tahun sebelumnya"
                         >
-                          <LuChevronLeft size={14} />
+                          <LuChevronLeft size={16} />
                         </button>
-                        <span className="font-bold text-[#14201A] text-xs">
-                          Pilih Tahun
-                        </span>
+                        <span className="font-bold text-[#14201A] text-sm">{selectedYear}</span>
                         <button
                           type="button"
-                          onClick={() => setSelectedYear((y) => y + 3)}
-                          className="p-1 rounded-md text-[#5B6B61] hover:text-[#1F6B3F] hover:bg-[#F4FAF6] cursor-pointer"
+                          onClick={() => {
+                            setSelectedYear((y) => y + 1);
+                            setYearAvailability({});
+                          }}
+                          className="p-1.5 rounded-lg border border-[#DDE2DF] text-[#5B6B61] hover:text-[#1F6B3F] hover:bg-[#F4FAF6] cursor-pointer"
                           title="Tahun berikutnya"
+                          aria-label="Tahun berikutnya"
                         >
-                          <LuChevronRight size={14} />
+                          <LuChevronRight size={16} />
                         </button>
                       </div>
 
                       {/* Years Grid */}
-                      <div className="grid grid-cols-3 gap-2 py-1">
-                        {[
-                          selectedYear - 2,
-                          selectedYear - 1,
-                          selectedYear,
-                          selectedYear + 1,
-                          selectedYear + 2,
-                          selectedYear + 3,
-                        ].map((yr) => {
+                      <div className="grid grid-cols-3 gap-2 mb-2">
+                        {[selectedYear, selectedYear + 1, selectedYear + 2].map((yr) => {
                           const isSelected = selectedYear === yr;
+                          const yearHasData = yearAvailability[yr] === true;
+                          const statusKnown = yearAvailability[yr] === true || yearAvailability[yr] === false;
+                          const yearStatus = yearHasData
+                            ? "ada data"
+                            : statusKnown
+                            ? "tidak ada data"
+                            : "status data belum diketahui";
                           return (
                             <button
                               key={yr}
                               type="button"
+                              disabled={yearAvailability[yr] === false}
                               onClick={() => {
                                 setSelectedYear(yr);
                                 setIsMonthPickerOpen(false);
                               }}
-                              className={`py-2 text-xs font-medium rounded-lg transition text-center cursor-pointer ${
+                              aria-label={`${yr}, ${yearStatus}`}
+                              title={statusKnown
+                                ? (yearHasData ? "Ada data" : "Tidak ada data")
+                                : "Memeriksa data"}
+                              className={`py-2 min-h-12 flex flex-col items-center justify-center gap-1 text-xs font-medium rounded-lg transition text-center ${
                                 isSelected
                                   ? "bg-[#1F6B3F] text-white font-semibold shadow-xs"
-                                  : "text-[#14201A] hover:bg-[#E3F1E8] hover:text-[#1F6B3F]"
+                                  : yearHasData
+                                  ? "text-[#14201A] hover:bg-[#E3F1E8] hover:text-[#1F6B3F] cursor-pointer"
+                                  : "text-[#C4CCC7] cursor-not-allowed"
                               }`}
                             >
-                              {yr}
+                              <span>{yr}</span>
+                              <span
+                                aria-hidden="true"
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isSelected && yearHasData
+                                    ? "bg-white"
+                                    : yearHasData
+                                    ? "bg-[#1F6B3F]"
+                                    : "bg-transparent"
+                                }`}
+                              />
                             </button>
                           );
                         })}
                       </div>
 
+                      <div className="flex items-center gap-3 pt-3 mt-2 border-t border-[#F0F2F1] text-[11px] text-[#5B6B61]">
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#1F6B3F]" />
+                          Ada data
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#DDE2DF]" />
+                          Tidak ada data
+                        </span>
+                      </div>
+
                       {/* Footer Actions */}
                       <div className="flex items-center justify-between pt-3 mt-2 border-t border-[#F0F2F1]">
-                        <span className="text-xs font-semibold text-[#1F6B3F]">
-                          Tahun
-                        </span>
+                        <span className="text-xs font-semibold text-[#1F6B3F]">Tahun</span>
                         <button
                           type="button"
                           onClick={() => setIsMonthPickerOpen(false)}
@@ -703,31 +804,40 @@ export default function LandingPage() {
                       <div className="grid grid-cols-3 gap-2 py-1">
                         {MONTH_SHORT.map((mShort, idx) => {
                           const isSelected = selectedMonth === idx;
-                          const hasData = Boolean(
-                            chartData.find(
-                              (d) =>
-                                d.monthIdx === idx &&
-                                (d.terkumpul > 0 || d.terolah > 0)
-                            )
+                          const monthHasData = chartData.some(
+                            (entry) => entry.monthIdx === idx && hasPeriodData(entry)
                           );
 
                           return (
                             <button
                               key={mShort}
                               type="button"
+                              disabled={!monthHasData}
                               onClick={() => {
                                 setSelectedMonth(idx);
                                 setIsMonthPickerOpen(false);
                               }}
-                              className={`py-2 text-xs font-medium rounded-lg transition text-center cursor-pointer ${
+                              aria-label={`${MONTH_NAMES[idx]}${monthHasData ? ", ada data" : ", tidak ada data"}`}
+                              title={monthHasData ? "Ada data" : "Tidak ada data"}
+                              className={`py-2 min-h-12 flex flex-col items-center justify-center gap-1 text-xs font-medium rounded-lg transition text-center ${
                                 isSelected
                                   ? "bg-[#1F6B3F] text-white font-semibold shadow-xs"
-                                  : hasData
-                                  ? "text-[#14201A] hover:bg-[#E3F1E8] hover:text-[#1F6B3F]"
-                                  : "text-[#A0ABA5] hover:bg-gray-50"
+                                  : monthHasData
+                                  ? "text-[#14201A] hover:bg-[#E3F1E8] hover:text-[#1F6B3F] cursor-pointer"
+                                  : "text-[#C4CCC7] cursor-not-allowed"
                               }`}
                             >
-                              {mShort}
+                              <span>{mShort}</span>
+                              <span
+                                aria-hidden="true"
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isSelected && monthHasData
+                                    ? "bg-white"
+                                    : monthHasData
+                                    ? "bg-[#1F6B3F]"
+                                    : "bg-transparent"
+                                }`}
+                              />
                             </button>
                           );
                         })}
@@ -736,11 +846,11 @@ export default function LandingPage() {
                       {/* Legend: Ada data / Tidak ada data */}
                       <div className="flex items-center gap-3 pt-3 mt-2 border-t border-[#F0F2F1] text-[11px] text-[#5B6B61]">
                         <span className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#1F6B3F]"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#1F6B3F]" />
                           Ada data
                         </span>
                         <span className="flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-[#DDE2DF]"></span>
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#DDE2DF]" />
                           Tidak ada data
                         </span>
                       </div>

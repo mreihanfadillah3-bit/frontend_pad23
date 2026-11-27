@@ -5,9 +5,11 @@ import { MdInfoOutline } from "react-icons/md";
 import PopUpDetailHasilOlahan from "./PopUpDetailHasilOlahan";
 import PopUpInfoPublikasi from "./PopUpInfoPublikasi";
 import PopUpInfoSimpan from "./PopUpInfoSimpan";
+import PeriodFilter, { MONTHS_ID } from "../../../components/common/PeriodFilter";
 import { formatKg, formatRupiah, formatError } from "../../../utils/format";
 import {
   getHasilOlahan,
+  getAllHasilOlahan,
   createHasilOlahan,
   publikasikanHasilOlahan,
 } from "../../../services/hasilOlahanService";
@@ -38,6 +40,7 @@ export default function HasilOlahanPage() {
 
   // State daftar hasil olahan
   const [hasilList, setHasilList] = useState([]);
+  const [allHasilList, setAllHasilList] = useState([]);
   const [loadingHasil, setLoadingHasil] = useState(true);
   const [hasilMeta, setHasilMeta] = useState(null);
 
@@ -54,12 +57,22 @@ export default function HasilOlahanPage() {
   const [publishedBatchCode, setPublishedBatchCode] = useState(null);
   const [savedBatchCode, setSavedBatchCode] = useState(null);
 
+  // Filter periode untuk 2 stat card
+  const now = new Date();
+  const [periodMode, setPeriodMode] = useState("semua"); // "semua" | "bulan" | "tahun"
+  const [filterMonth, setFilterMonth] = useState(now.getMonth());
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+
   // 1. Muat daftar hasil olahan dari API
   const loadHasilList = useCallback(async () => {
     setLoadingHasil(true);
     try {
-      const res = await getHasilOlahan({ limit: 10 });
+      const [res, allData] = await Promise.all([
+        getHasilOlahan({ limit: 10 }),
+        getAllHasilOlahan(),
+      ]);
       setHasilList(res.data || []);
+      setAllHasilList(allData || []);
       setHasilMeta(res.meta || null);
     } catch (err) {
       console.error("Gagal memuat hasil olahan:", err);
@@ -189,13 +202,38 @@ export default function HasilOlahanPage() {
     }
   }
 
-  // Hitung total ringkasan dari hasil olahan
+  // Kumpulkan bulan & tahun yang memiliki data untuk indikator picker
+  const { availableMonths, availableYears } = useMemo(() => {
+    const source = allHasilList.length > 0 ? allHasilList : hasilList;
+    const months = new Set();
+    const years = new Set();
+    for (const item of source) {
+      const d = new Date(item.tanggal_direkap);
+      if (!isNaN(d.getTime())) {
+        years.add(d.getFullYear());
+        if (d.getFullYear() === filterYear) {
+          months.add(d.getMonth());
+        }
+      }
+    }
+    return { availableMonths: months, availableYears: years };
+  }, [allHasilList, hasilList, filterYear]);
+
+  // Hitung total ringkasan sesuai filter periode (semua / bulan / tahun)
   const totalRingkasan = useMemo(() => {
-    const totalBerat = hasilList.reduce(
+    const source = allHasilList.length > 0 ? allHasilList : hasilList;
+    const filtered = source.filter((item) => {
+      if (periodMode === "semua") return true;
+      const d = new Date(item.tanggal_direkap);
+      if (isNaN(d.getTime())) return false;
+      if (periodMode === "tahun") return d.getFullYear() === filterYear;
+      return d.getFullYear() === filterYear && d.getMonth() === filterMonth;
+    });
+    const totalBerat = filtered.reduce(
       (sum, item) => sum + (parseFloat(item.berat_hasil_olahan) || 0),
       0
     );
-    const totalNilai = hasilList.reduce(
+    const totalNilai = filtered.reduce(
       (sum, item) => sum + (parseFloat(item.nilai_jual) || 0),
       0
     );
@@ -203,7 +241,7 @@ export default function HasilOlahanPage() {
       totalBerat: Math.round(totalBerat * 100) / 100,
       totalNilai,
     };
-  }, [hasilList]);
+  }, [allHasilList, hasilList, periodMode, filterMonth, filterYear]);
 
   const latestItem = hasilList[0];
 
@@ -398,47 +436,68 @@ export default function HasilOlahanPage() {
         ) : (
           /* TAMPILAN MODE 2: Dashboard Ringkasan & Tabel Batch Selesai Diolah */
           <>
-            {/* Stat Cards 2 Kolom */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Card 1: Hasil Olahan */}
-              <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6 flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-[#3F4B44]">
-                    Hasil Olahan
-                  </span>
-                  <div className="w-10 h-10 rounded-xl bg-[#E3F1E8] flex items-center justify-center text-[#1F6B3F]">
-                    <LuPackage size={22} strokeWidth={2} />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-3xl font-extrabold text-[#14201A] font-jakarta">
-                    {formatKg(totalRingkasan.totalBerat)}
-                  </p>
-                  <p className="text-xs text-[#5B6B61] mt-1">
-                    {latestItem
-                      ? `Hasil terbaru: batch ${formatBatchCode(latestItem.id_olah_sampah)}`
-                      : "Total berat hasil olahan yang telah dicatat"}
-                  </p>
-                </div>
-              </div>
+            {/* Filter Periode + Stat Cards 2 Kolom */}
+            <div className="flex flex-col gap-3">
+              <PeriodFilter
+                mode={periodMode}
+                onModeChange={setPeriodMode}
+                month={filterMonth}
+                onMonthChange={setFilterMonth}
+                year={filterYear}
+                onYearChange={setFilterYear}
+                availableMonths={availableMonths}
+                availableYears={availableYears}
+              />
 
-              {/* Card 2: Nilai Jual */}
-              <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6 flex flex-col justify-between">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-[#3F4B44]">
-                    Nilai Jual
-                  </span>
-                  <div className="w-10 h-10 rounded-xl bg-[#E3F1E8] flex items-center justify-center text-[#1F6B3F]">
-                    <LuWallet size={20} strokeWidth={2} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Card 1: Hasil Olahan */}
+                <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-[#3F4B44]">
+                      Hasil Olahan
+                    </span>
+                    <div className="w-10 h-10 rounded-xl bg-[#E3F1E8] flex items-center justify-center text-[#1F6B3F]">
+                      <LuPackage size={22} strokeWidth={2} />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-3xl font-extrabold text-[#14201A] font-jakarta">
+                      {formatKg(totalRingkasan.totalBerat)}
+                    </p>
+                    <p className="text-xs text-[#5B6B61] mt-1">
+                      {periodMode === "bulan"
+                        ? `Total berat hasil olahan pada ${MONTHS_ID[filterMonth]} ${filterYear}`
+                        : periodMode === "tahun"
+                        ? `Total berat hasil olahan pada tahun ${filterYear}`
+                        : latestItem
+                        ? `Hasil terbaru: batch ${formatBatchCode(latestItem.id_olah_sampah)}`
+                        : "Total berat hasil olahan yang telah dicatat"}
+                    </p>
                   </div>
                 </div>
-                <div className="mt-4">
-                  <p className="text-3xl font-extrabold text-[#14201A] font-jakarta">
-                    {formatRupiah(totalRingkasan.totalNilai)}
-                  </p>
-                  <p className="text-xs text-[#5B6B61] mt-1">
-                    Akumulasi nilai jual dari seluruh hasil olahan tercatat
-                  </p>
+
+                {/* Card 2: Nilai Jual */}
+                <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6 flex flex-col justify-between">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-semibold text-[#3F4B44]">
+                      Nilai Jual
+                    </span>
+                    <div className="w-10 h-10 rounded-xl bg-[#E3F1E8] flex items-center justify-center text-[#1F6B3F]">
+                      <LuWallet size={20} strokeWidth={2} />
+                    </div>
+                  </div>
+                  <div className="mt-4">
+                    <p className="text-3xl font-extrabold text-[#14201A] font-jakarta">
+                      {formatRupiah(totalRingkasan.totalNilai)}
+                    </p>
+                    <p className="text-xs text-[#5B6B61] mt-1">
+                      {periodMode === "bulan"
+                        ? `Akumulasi nilai jual pada ${MONTHS_ID[filterMonth]} ${filterYear}`
+                        : periodMode === "tahun"
+                        ? `Akumulasi nilai jual pada tahun ${filterYear}`
+                        : "Akumulasi nilai jual dari seluruh hasil olahan tercatat"}
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>

@@ -9,7 +9,7 @@ function toArray(val) {
 /**
  * Mengambil daftar hasil olahan
  * GET /api/v1/hasil-olahan
- * Params: status_publikasi ("Belum Dipublikasi" | "Sudah Dipublikasi"), tanggal_direkap, page, limit (max 10)
+ * Params: status_publikasi, tanggal_direkap, page, limit
  */
 export async function getHasilOlahan(params = {}) {
   const cleanedParams = {};
@@ -24,6 +24,15 @@ export async function getHasilOlahan(params = {}) {
     data: toArray(result.data ?? result),
     meta: result.meta ?? null,
   };
+}
+
+/**
+ * Mengambil SEMUA hasil olahan tanpa paginasi untuk keperluan ringkasan/statistik
+ * GET /api/v1/hasil-olahan?all=true
+ */
+export async function getAllHasilOlahan() {
+  const result = await apiRequest(`/hasil-olahan?all=true`);
+  return toArray(result.data ?? result);
 }
 
 /**

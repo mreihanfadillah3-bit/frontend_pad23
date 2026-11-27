@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   MdAdd,
@@ -11,6 +11,7 @@ import {
 } from "react-icons/md";
 import { LuPencil, LuTrash2 } from "react-icons/lu";
 import PopUpKonfirmasiHapus from "../../../components/common/PopUpKonfirmasiHapus";
+import PeriodFilter, { MONTHS_ID } from "../../../components/common/PeriodFilter";
 import { formatKg, formatRupiah, formatError } from "../../../utils/format";
 import { getPengumpulan, deletePengumpulan } from "../../../services/pengumpulanSampahService";
 import { bayarSetoran } from "../../../services/pembayaranService";
@@ -35,6 +36,13 @@ function matchesTab(item, tabKey) {
   return getNotaStage(item) === tabKey;
 }
 
+function hasMonthSampahData(entry) {
+  const val = entry?.sampah_terkumpul;
+  const berat = Number(typeof val === "object" ? val?.berat ?? val?.jumlah_setoran : val);
+  const nilai = Number(entry?.nilai_sampah ?? 0);
+  return berat > 0 || nilai > 0;
+}
+
 export default function KumpulSampahPage() {
   const navigate = useNavigate();
   const [tab, setTab] = useState("semua");
@@ -46,8 +54,117 @@ export default function KumpulSampahPage() {
   const [payingId, setPayingId] = useState(null);
   const [notaToDelete, setNotaToDelete] = useState(null);
   const [stats, setStats] = useState({ totalKg: 0, totalNilai: 0 });
+  const rawListRef = useRef([]);
+
+  // Filter periode untuk 2 stat card
+  const now = new Date();
+  const [periodMode, setPeriodMode] = useState("semua"); // "semua" | "bulan" | "tahun"
+  const [filterMonth, setFilterMonth] = useState(now.getMonth());
+  const [filterYear, setFilterYear] = useState(now.getFullYear());
+  const [availableMonths, setAvailableMonths] = useState(() => new Set());
+  const [availableYears, setAvailableYears] = useState(() => new Set());
 
   const activeTab = TABS.find((t) => t.key === tab) || TABS[0];
+
+  const loadStats = useCallback(async () => {
+    if (periodMode === "semua") {
+      try {
+        const firstRes = await getPengumpulan({ status: "Lunas", limit: 10, page: 1 });
+        const totalPages =
+          Number(firstRes.meta?.total_page ?? firstRes.meta?.last_page ?? 1) || 1;
+        let allLunas = [...(firstRes.data || [])];
+
+        if (totalPages > 1) {
+          const restPages = await Promise.all(
+            Array.from({ length: totalPages - 1 }, (_, idx) =>
+              getPengumpulan({ status: "Lunas", limit: 10, page: idx + 2 }).catch(() => ({
+                data: [],
+              }))
+            )
+          );
+          for (const res of restPages) {
+            allLunas = allLunas.concat(res.data || []);
+          }
+        }
+
+        const totalKg = allLunas.reduce(
+          (sum, item) => sum + (Number(item.total_berat) || 0),
+          0
+        );
+        const totalNilai = allLunas.reduce(
+          (sum, item) => sum + (Number(item.total_biaya) || 0),
+          0
+        );
+
+        setStats({
+          totalKg: Math.round(totalKg * 100) / 100,
+          totalNilai,
+        });
+      } catch (err) {
+        console.warn("Gagal memuat ringkasan all-time:", err);
+      }
+      return;
+    }
+
+    if (periodMode === "tahun") {
+      const monthlyResults = await Promise.all(
+        Array.from({ length: 12 }, (_, idx) =>
+          getDashboard({
+            bulan: idx + 1,
+            tahun: filterYear,
+            mode_grafik: "bulan",
+          }).catch(() => null)
+        )
+      );
+
+      let totalKg = 0;
+      let totalNilai = 0;
+      for (const res of monthlyResults) {
+        if (!res) continue;
+        const kg =
+          res?.ringkasan_sampah_terkumpul?.berat ??
+          (typeof res?.ringkasan_periode?.sampah_terkumpul === "object"
+            ? res.ringkasan_periode.sampah_terkumpul?.berat
+            : res?.ringkasan_periode?.sampah_terkumpul) ??
+          0;
+        const nilai =
+          res?.ringkasan_sampah_terkumpul?.nilai ??
+          res?.ringkasan_periode?.nilai_sampah ??
+          0;
+        totalKg += Number(kg) || 0;
+        totalNilai += Number(nilai) || 0;
+      }
+
+      setStats({
+        totalKg: Math.round(totalKg * 100) / 100,
+        totalNilai,
+      });
+      return;
+    }
+
+    const dashboardRes = await getDashboard({
+      bulan: filterMonth + 1,
+      tahun: filterYear,
+      mode_grafik: "bulan",
+    }).catch(() => null);
+
+    const totalKg =
+      dashboardRes?.ringkasan_sampah_terkumpul?.berat ??
+      (typeof dashboardRes?.ringkasan_periode?.sampah_terkumpul === "object"
+        ? dashboardRes.ringkasan_periode.sampah_terkumpul?.berat
+        : dashboardRes?.ringkasan_periode?.sampah_terkumpul) ??
+      0;
+
+    const totalNilai =
+      dashboardRes?.ringkasan_sampah_terkumpul?.nilai ??
+      dashboardRes?.ringkasan_periode?.nilai_sampah ??
+      0;
+
+    setStats({
+      totalKg: Number(totalKg) || 0,
+      totalNilai: Number(totalNilai) || 0,
+    });
+  }, [periodMode, filterMonth, filterYear]);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -55,10 +172,7 @@ export default function KumpulSampahPage() {
     try {
       // Selalu ambil semua tanpa filter status ke API (hindari validasi 422),
       // lalu saring di frontend berdasarkan tab aktif.
-      const [pengumpulanRes, dashboardRes] = await Promise.all([
-        getPengumpulan({ page, limit: 10 }),
-        getDashboard().catch(() => null),
-      ]);
+      const pengumpulanRes = await getPengumpulan({ page, limit: 10 });
 
       // Urutkan ID terbesar (terbaru) di atas agar setoran yang baru disimpan langsung terlihat
       const rawList = [...(pengumpulanRes.data || [])].sort((a, b) => {
@@ -66,6 +180,7 @@ export default function KumpulSampahPage() {
         const idB = Number(b.id_pengumpulan_sampah ?? b.id ?? 0);
         return idB - idA;
       });
+      rawListRef.current = rawList;
 
       // Filter client-side sesuai tab; "semua" tidak difilter
       const list = activeTab.key === "semua"
@@ -74,9 +189,20 @@ export default function KumpulSampahPage() {
 
       setNotaList(list);
 
-      // Gunakan meta dari server jika tidak ada filter, atau buat sendiri
+      // Gunakan meta dari server jika tidak ada filter (normalisasi format BE & Laravel), atau buat sendiri
       if (pengumpulanRes.meta && activeTab.key === "semua") {
-        setMeta(pengumpulanRes.meta);
+        const m = pengumpulanRes.meta;
+        const total = Number(m.total ?? m.total_data ?? list.length) || 0;
+        const currentPage = Number(m.current_page ?? m.page ?? page) || 1;
+        const perPage = Number(m.per_page ?? m.limit ?? 10) || 10;
+        const lastPage =
+          Number(m.last_page ?? m.total_page ?? Math.max(1, Math.ceil(total / perPage))) || 1;
+        setMeta({
+          current_page: currentPage,
+          last_page: lastPage,
+          total,
+          per_page: perPage,
+        });
       } else {
         setMeta({
           current_page: 1,
@@ -85,54 +211,65 @@ export default function KumpulSampahPage() {
           per_page: list.length || 10,
         });
       }
-
-      // Hitung khusus untuk nota yang sudah dibayar (status lunas)
-      const lunasList = rawList.filter((item) => getNotaStage(item) === "lunas");
-      const fallbackNilai = lunasList.reduce(
-        (sum, item) => sum + (Number(item.total_biaya) || 0),
-        0
-      );
-      const fallbackKg = lunasList.reduce(
-        (sum, item) => sum + (Number(item.total_berat) || 0),
-        0
-      );
-
-      // Ambil berat & nilai dari backend dashboard (sudah difilter pembayaran lunas)
-      let totalKg =
-        dashboardRes?.ringkasan_sampah_terkumpul?.berat ??
-        (typeof dashboardRes?.ringkasan_periode?.sampah_terkumpul === "object"
-          ? dashboardRes.ringkasan_periode.sampah_terkumpul?.berat
-          : dashboardRes?.ringkasan_periode?.sampah_terkumpul) ??
-        0;
-
-      let totalNilai =
-        dashboardRes?.ringkasan_sampah_terkumpul?.nilai ??
-        dashboardRes?.ringkasan_periode?.nilai_sampah ??
-        0;
-
-      // Fallback eksklusif nota lunas jika dashboard belum mengagregasi
-      if (!totalNilai && fallbackNilai > 0) {
-        totalNilai = fallbackNilai;
-      }
-      if (!totalKg && fallbackKg > 0) {
-        totalKg = fallbackKg;
-      }
-
-      setStats({
-        totalKg: Number(totalKg) || 0,
-        totalNilai: Number(totalNilai) || 0,
-      });
     } catch (err) {
       console.error("Gagal memuat data kumpul sampah:", err);
       setError(formatError(err) || "Gagal memuat data setoran.");
     } finally {
       setLoading(false);
     }
-  }, [activeTab.key, activeTab.statusParam, page]);
+  }, [activeTab.key, page]);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  // Cek ketersediaan data per bulan / per tahun untuk indikator picker (sama seperti Dashboard)
+  useEffect(() => {
+    if (periodMode === "semua") return;
+    let active = true;
+
+    if (periodMode === "bulan") {
+      getDashboard({ tahun: filterYear, mode_grafik: "bulan" })
+        .then((res) => {
+          if (!active) return;
+          const chart = Array.isArray(res?.chart_data) ? res.chart_data : [];
+          const months = new Set();
+          chart.forEach((entry, idx) => {
+            const mIdx = entry.bulan ? Number(entry.bulan) - 1 : (entry.monthIdx ?? idx);
+            if (hasMonthSampahData(entry)) {
+              months.add(mIdx);
+            }
+          });
+          setAvailableMonths(months);
+        })
+        .catch(() => {
+          if (active) setAvailableMonths(new Set());
+        });
+    } else if (periodMode === "tahun") {
+      const targetYears = [filterYear - 1, filterYear, filterYear + 1];
+      Promise.all(
+        targetYears.map((yr) =>
+          getDashboard({ tahun: yr, mode_grafik: "bulan" })
+            .then((res) => {
+              const chart = Array.isArray(res?.chart_data) ? res.chart_data : [];
+              return chart.some(hasMonthSampahData) ? yr : null;
+            })
+            .catch(() => null)
+        )
+      ).then((results) => {
+        if (!active) return;
+        setAvailableYears(new Set(results.filter((yr) => yr !== null)));
+      });
+    }
+
+    return () => {
+      active = false;
+    };
+  }, [periodMode, filterYear]);
 
   function handleTabChange(newTabKey) {
     setTab(newTabKey);
@@ -146,7 +283,7 @@ export default function KumpulSampahPage() {
       await bayarSetoran(id, {
         jumlah_dibayar: nota.total_biaya || 0,
       });
-      await loadData();
+      await Promise.all([loadData(), loadStats()]);
     } catch (err) {
       alert(formatError(err) || "Gagal mencatat pembayaran.");
     } finally {
@@ -159,7 +296,7 @@ export default function KumpulSampahPage() {
       const id = notaToDelete.id_pengumpulan_sampah ?? notaToDelete.id;
       try {
         await deletePengumpulan(id);
-        await loadData();
+        await Promise.all([loadData(), loadStats()]);
       } catch (err) {
         console.warn("Gagal menghapus via API:", err);
       }
@@ -185,8 +322,11 @@ export default function KumpulSampahPage() {
       : id;
   };
 
-  const fromIndex = meta.total === 0 ? 0 : (meta.current_page - 1) * (meta.per_page || 10) + 1;
-  const toIndex = Math.min(meta.total, meta.current_page * (meta.per_page || 10));
+  const totalMeta = Number(meta?.total) || 0;
+  const currentPageMeta = Number(meta?.current_page) || 1;
+  const perPageMeta = Number(meta?.per_page) || 10;
+  const fromIndex = totalMeta === 0 ? 0 : (currentPageMeta - 1) * perPageMeta + 1;
+  const toIndex = Math.min(totalMeta, currentPageMeta * perPageMeta);
 
   return (
     <div
@@ -426,45 +566,67 @@ export default function KumpulSampahPage() {
           </div>
         </section>
 
-        {/* Stat Cards: Sampah Terkumpul & Nilai Sampah */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: Sampah Terkumpul */}
-          <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-[#3F4B44]">
-                Sampah Terkumpul
-              </span>
-              <div className="w-10 h-10 rounded-xl bg-[#E3F1E8] flex items-center justify-center text-[#1F6B3F]">
-                <MdRecycling size={22} />
-              </div>
-            </div>
-            <div className="mt-4">
-              <p className="text-3xl font-extrabold text-[#14201A] font-jakarta">
-                {formatKg(stats.totalKg)}
-              </p>
-              <p className="text-xs text-[#5B6B61] mt-1">
-                Total sampah dari nota yang sudah dibayar
-              </p>
-            </div>
-          </div>
+        {/* Filter Periode + Stat Cards: Sampah Terkumpul & Nilai Sampah */}
+        <div className="flex flex-col gap-3">
+          <PeriodFilter
+            mode={periodMode}
+            onModeChange={setPeriodMode}
+            month={filterMonth}
+            onMonthChange={setFilterMonth}
+            year={filterYear}
+            onYearChange={setFilterYear}
+            availableMonths={availableMonths}
+            availableYears={availableYears}
+            placement="top"
+          />
 
-          {/* Card 2: Nilai Sampah Tercatat */}
-          <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6 flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-semibold text-[#3F4B44]">
-                Nilai Sampah Tercatat
-              </span>
-              <div className="w-10 h-10 rounded-xl bg-[#E3F1E8] flex items-center justify-center text-[#1F6B3F]">
-                <MdAccountBalanceWallet size={20} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Card 1: Sampah Terkumpul */}
+            <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-[#3F4B44]">
+                  Sampah Terkumpul
+                </span>
+                <div className="w-10 h-10 rounded-xl bg-[#E3F1E8] flex items-center justify-center text-[#1F6B3F]">
+                  <MdRecycling size={22} />
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-3xl font-extrabold text-[#14201A] font-jakarta">
+                  {formatKg(stats.totalKg)}
+                </p>
+                <p className="text-xs text-[#5B6B61] mt-1">
+                  {periodMode === "bulan"
+                    ? `Total sampah dari nota lunas pada ${MONTHS_ID[filterMonth]} ${filterYear}`
+                    : periodMode === "tahun"
+                    ? `Total sampah dari nota lunas pada tahun ${filterYear}`
+                    : "Total sampah dari nota yang sudah dibayar"}
+                </p>
               </div>
             </div>
-            <div className="mt-4">
-              <p className="text-3xl font-extrabold text-[#14201A] font-jakarta">
-                {formatRupiah(stats.totalNilai)}
-              </p>
-              <p className="text-xs text-[#5B6B61] mt-1">
-                Akumulasi nilai dari nota yang sudah dibayar
-              </p>
+
+            {/* Card 2: Nilai Sampah Tercatat */}
+            <div className="bg-white rounded-2xl border border-[#DDE2DF] shadow-sm p-6 flex flex-col justify-between">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-semibold text-[#3F4B44]">
+                  Nilai Sampah Tercatat
+                </span>
+                <div className="w-10 h-10 rounded-xl bg-[#E3F1E8] flex items-center justify-center text-[#1F6B3F]">
+                  <MdAccountBalanceWallet size={20} />
+                </div>
+              </div>
+              <div className="mt-4">
+                <p className="text-3xl font-extrabold text-[#14201A] font-jakarta">
+                  {formatRupiah(stats.totalNilai)}
+                </p>
+                <p className="text-xs text-[#5B6B61] mt-1">
+                  {periodMode === "bulan"
+                    ? `Akumulasi nilai nota lunas pada ${MONTHS_ID[filterMonth]} ${filterYear}`
+                    : periodMode === "tahun"
+                    ? `Akumulasi nilai nota lunas pada tahun ${filterYear}`
+                    : "Akumulasi nilai dari nota yang sudah dibayar"}
+                </p>
+              </div>
             </div>
           </div>
         </div>

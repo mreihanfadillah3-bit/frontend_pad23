@@ -27,8 +27,8 @@ export default function UbahPasswordPage() {
       setError("Semua kolom wajib diisi.");
       return;
     }
-    if (form.baru.length < 8) {
-      setError("Password baru minimal 8 karakter.");
+    if (form.baru.length < 8 || !/[a-zA-Z]/.test(form.baru) || !/\d/.test(form.baru)) {
+      setError("Password baru minimal 8 karakter dengan kombinasi huruf dan angka.");
       return;
     }
     if (form.baru === form.lama) {

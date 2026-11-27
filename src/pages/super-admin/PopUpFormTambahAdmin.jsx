@@ -29,8 +29,8 @@ export default function PopUpFormTambahAdmin({ onClose, onSave }) {
       return;
     }
 
-    if (password.length < 8) {
-      setError("Password minimal 8 karakter.");
+    if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/\d/.test(password)) {
+      setError("Password minimal 8 karakter dengan kombinasi huruf dan angka.");
       return;
     }
 

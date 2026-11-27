@@ -27,8 +27,8 @@ export default function PopUpEditPasswordAdmin({ admin, onClose, onSave }) {
       return;
     }
 
-    if (passwordBaru.length < 8) {
-      setError("Password baru minimal 8 karakter.");
+    if (passwordBaru.length < 8 || !/[a-zA-Z]/.test(passwordBaru) || !/\d/.test(passwordBaru)) {
+      setError("Password baru minimal 8 karakter dengan kombinasi huruf dan angka.");
       return;
     }
 

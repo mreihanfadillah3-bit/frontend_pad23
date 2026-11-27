@@ -229,7 +229,7 @@ export default function OlahAdminPage() {
                         <td className="py-4 px-6 text-sm">
                           <span
                             className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${
-                              admin.status === "aktif"
+                              admin.status?.trim().toLowerCase() === "aktif"
                                 ? "bg-green-100 text-green-700"
                                 : "bg-gray-100 text-gray-500"
                             }`}
@@ -239,20 +239,27 @@ export default function OlahAdminPage() {
                         </td>
                         <td className="py-4 px-6 text-sm">
                           <div className="flex items-center justify-end gap-2.5">
+                            {admin.status?.trim().toLowerCase() === "aktif" && (
+                              <button
+                                type="button"
+                                onClick={() => setModal({ type: "editPassword", admin })}
+                                className="px-3.5 py-1.5 border border-[#1F6B3F] text-[#1F6B3F] bg-white hover:bg-[#E3F1E8] rounded-xl text-xs font-semibold transition-colors"
+                              >
+                                Edit Password
+                              </button>
+                            )}
                             <button
                               type="button"
-                              onClick={() => setModal({ type: "editPassword", admin })}
-                              className="px-3.5 py-1.5 border border-[#1F6B3F] text-[#1F6B3F] bg-white hover:bg-[#E3F1E8] rounded-xl text-xs font-semibold transition-colors"
-                            >
-                              Edit Password
-                            </button>
-                            <button
-                              type="button"
+                              disabled={admin.status?.trim().toLowerCase() !== "aktif"}
                               onClick={() => {
                                 setActionError("");
                                 setModal({ type: "hapus", admin });
                               }}
-                              className="px-3.5 py-1.5 border border-[#E05252] text-[#E05252] bg-white hover:bg-[#FDF2F2] rounded-xl text-xs font-semibold transition-colors"
+                              className={`px-3.5 py-1.5 border rounded-xl text-xs font-semibold transition-colors ${
+                                admin.status?.trim().toLowerCase() !== "aktif"
+                                  ? "border-gray-300 text-gray-400 bg-gray-100 cursor-not-allowed"
+                                  : "border-[#E05252] text-[#E05252] bg-white hover:bg-[#FDF2F2]"
+                              }`}
                             >
                               Hapus
                             </button>

@@ -11,6 +11,13 @@ export default function PopUpTambahJenisSampah({ item, onClose, onSaved }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const MAX_TARIF_DIGITS = 15;
+  const MAX_TARIF_VALUE = 999999999999999;
+  const tarifDigitsCount = String(tarif ?? "").replace(/\D/g, "").length;
+  const isTarifTooLong =
+    tarifDigitsCount > MAX_TARIF_DIGITS ||
+    (Number.isFinite(Number(tarif)) && Number(tarif) > MAX_TARIF_VALUE);
+
   const options = SATUAN_OPTIONS.includes(satuan) ? SATUAN_OPTIONS : [satuan, ...SATUAN_OPTIONS];
 
   async function handleSubmit(e) {
@@ -19,6 +26,11 @@ export default function PopUpTambahJenisSampah({ item, onClose, onSaved }) {
 
     if (Number(tarif) <= 0) {
       setError("Nominal tarif harus lebih besar dari 0.");
+      return;
+    }
+
+    if (isTarifTooLong) {
+      setError("Nominal tarif tidak boleh melebihi 15 digit.");
       return;
     }
 
@@ -81,19 +93,34 @@ export default function PopUpTambahJenisSampah({ item, onClose, onSaved }) {
           <label className="modal-field-label">
             Tarif/{satuan} <span className="required-hint">(wajib)</span>
           </label>
-          <div className="modal-tarif-wrapper">
+          <div
+            className="modal-tarif-wrapper"
+            style={isTarifTooLong ? { borderColor: "#DC2626" } : undefined}
+          >
             <span className="modal-tarif-prefix">Rp</span>
             <input
               className="modal-input"
               type="number"
               min="1"
+              max={MAX_TARIF_VALUE}
               value={tarif}
-              onChange={(e) => setTarif(e.target.value)}
+              onChange={(e) => {
+                setTarif(e.target.value);
+                setError("");
+              }}
               placeholder="0"
               required
             />
           </div>
-          <p className="modal-hint">Nominal tarif harus lebih besar dari 0.</p>
+          {isTarifTooLong ? (
+            <p className="mt-1 text-xs text-red-600">
+              Peringatan: Nominal tarif tidak boleh melebihi 15 digit.
+            </p>
+          ) : (
+            <p className="modal-hint">
+              Nominal tarif harus lebih besar dari 0 (maksimal 15 digit).
+            </p>
+          )}
         </div>
 
         {error && <p className="modal-error">{error}</p>}

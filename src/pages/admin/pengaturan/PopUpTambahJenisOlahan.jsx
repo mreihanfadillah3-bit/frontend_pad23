@@ -28,6 +28,13 @@ export default function PopUpTambahJenisOlahan({ item, onClose, onSaved }) {
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
 
+  const MAX_TARIF_DIGITS = 15;
+  const MAX_TARIF_VALUE = 999999999999999;
+  const tarifDigitsCount = String(tarif ?? "").replace(/\D/g, "").length;
+  const isTarifTooLong =
+    tarifDigitsCount > MAX_TARIF_DIGITS ||
+    (Number.isFinite(Number(tarif)) && Number(tarif) > MAX_TARIF_VALUE);
+
   // Opsi satuan massa
   const satuanOptions = ["kg", "gram", "liter", "pcs"];
   if (satuan && !satuanOptions.includes(satuan)) {
@@ -103,6 +110,11 @@ export default function PopUpTambahJenisOlahan({ item, onClose, onSaved }) {
 
     if (Number(tarif) <= 0) {
       setError("Nominal tarif harus lebih besar dari 0.");
+      return;
+    }
+
+    if (isTarifTooLong) {
+      setError("Nominal tarif tidak boleh melebihi 15 digit.");
       return;
     }
 
@@ -196,19 +208,35 @@ export default function PopUpTambahJenisOlahan({ item, onClose, onSaved }) {
           <label className="block text-xs font-semibold text-[#3F4B44] mb-1.5">
             Tarif <span className="font-normal text-[#5B6B61]">(wajib)</span>
           </label>
-          <div className="modal-tarif-wrapper">
+          <div
+            className="modal-tarif-wrapper"
+            style={isTarifTooLong ? { borderColor: "#DC2626" } : undefined}
+          >
             <span className="modal-tarif-prefix">Rp</span>
             <input
               type="number"
               min="1"
+              max={MAX_TARIF_VALUE}
               className="modal-input"
               value={tarif}
-              onChange={(e) => setTarif(e.target.value)}
+              onChange={(e) => {
+                setTarif(e.target.value);
+                setError("");
+              }}
               placeholder="0"
               required
             />
             <span className="modal-tarif-suffix">/ {satuan || "kg"}</span>
           </div>
+          {isTarifTooLong ? (
+            <p className="mt-1 text-xs text-red-600">
+              Peringatan: Nominal tarif tidak boleh melebihi 15 digit.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-[#5B6B61]">
+              Nominal tarif harus lebih besar dari 0 (maksimal 15 digit).
+            </p>
+          )}
         </div>
 
         {/* Deskripsi */}

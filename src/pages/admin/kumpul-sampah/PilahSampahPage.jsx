@@ -34,6 +34,9 @@ const TABS = [
 ];
 
 const EMPTY_FORM = { jenisId: "", berat: "" };
+const MAX_BERAT_DIGITS = 10;
+const MAX_NILAI_DIGITS = 15;
+const MAX_NILAI_VALUE = 10 ** MAX_NILAI_DIGITS - 1;
 const round3 = (n) => Math.round(n * 1000) / 1000;
 let _localRowId = 0;
 const nextLocalId = () => `local_${++_localRowId}`;
@@ -234,7 +237,15 @@ export default function PilahSampahPage() {
   }
 
   function handleFormChange(e) {
-    setForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    if (name === "berat") {
+      const digitCount = String(value).replace(/\D/g, "").length;
+      if (digitCount > MAX_BERAT_DIGITS) {
+        setFormError(`Berat sampah tidak boleh lebih dari ${MAX_BERAT_DIGITS} digit angka.`);
+        return;
+      }
+    }
+    setForm((prev) => ({ ...prev, [name]: value }));
     setFormError("");
   }
 
@@ -245,6 +256,11 @@ export default function PilahSampahPage() {
 
     if (!form.jenisId) {
       setFormError("Pilih jenis sampah terlebih dahulu.");
+      return;
+    }
+    const beratDigits = String(form.berat).replace(/\D/g, "").length;
+    if (beratDigits > MAX_BERAT_DIGITS) {
+      setFormError(`Berat sampah tidak boleh lebih dari ${MAX_BERAT_DIGITS} digit angka.`);
       return;
     }
     const berat = parseFloat(form.berat);
@@ -260,6 +276,18 @@ export default function PilahSampahPage() {
       jenis?.tarif_jasa_pengelolaan ?? jenis?.hargaPerKg ?? 0
     );
     const nilai = round3(berat * tarif);
+    if (!Number.isFinite(nilai) || Math.round(Math.abs(nilai)) > MAX_NILAI_VALUE) {
+      setFormError(`Harga jasa / nilai sampah tidak boleh lebih dari ${MAX_NILAI_DIGITS} digit angka.`);
+      return;
+    }
+    const projectedTotalHarga = round3(ringkasan.totalHarga + nilai);
+    if (
+      !Number.isFinite(projectedTotalHarga) ||
+      Math.round(Math.abs(projectedTotalHarga)) > MAX_NILAI_VALUE
+    ) {
+      setFormError(`Total harga jasa / nilai sampah pada nota tidak boleh lebih dari ${MAX_NILAI_DIGITS} digit angka.`);
+      return;
+    }
 
     const baruRow = {
       _localId: nextLocalId(),
@@ -847,9 +875,9 @@ export default function PilahSampahPage() {
                   <div className="border-t border-[#DDE2DF] my-5" />
 
                   {/* Total Berat */}
-                  <div className="flex items-center justify-between text-sm mb-3">
-                    <span className="text-[#5B6B61]">Total berat</span>
-                    <span className="font-bold text-[#14201A]">
+                  <div className="flex items-start justify-between gap-3 text-sm mb-3">
+                    <span className="text-[#5B6B61] shrink-0">Total berat</span>
+                    <span className="font-bold text-[#14201A] text-right [overflow-wrap:anywhere]">
                       {formatKg(ringkasan.totalBerat)}
                     </span>
                   </div>
@@ -863,7 +891,15 @@ export default function PilahSampahPage() {
                         ? "Total biaya final"
                         : "Total biaya"}
                     </span>
-                    <p className="text-3xl font-extrabold text-[#14201A] font-jakarta mt-1">
+                    <p
+                      className={`font-extrabold text-[#14201A] font-jakarta mt-1 leading-tight [overflow-wrap:anywhere] ${
+                        ringkasan.totalHarga >= 1e12
+                          ? "text-xl"
+                          : ringkasan.totalHarga >= 1e9
+                          ? "text-2xl"
+                          : "text-3xl"
+                      }`}
+                    >
                       {formatRupiah(ringkasan.totalHarga)}
                     </p>
                   </div>

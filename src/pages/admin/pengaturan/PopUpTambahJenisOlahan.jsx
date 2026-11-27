@@ -191,49 +191,23 @@ export default function PopUpTambahJenisOlahan({ item, onClose, onSaved }) {
           />
         </div>
 
-        {/* Baris Satuan & Tarif */}
-        <div className="grid grid-cols-2 gap-3">
-          {/* Satuan Massa */}
-          <div>
-            <label className="block text-xs font-semibold text-[#3F4B44] mb-1.5">
-              Satuan Massa <span className="font-normal text-[#5B6B61]">(wajib)</span>
-            </label>
-            <select
-              className="w-full px-3.5 py-2.5 bg-white border border-[#DDE2DF] rounded-xl text-sm text-[#14201A] focus:outline-none focus:border-[#1F6B3F] focus:ring-1 focus:ring-[#1F6B3F] transition-all"
-              value={satuan}
-              onChange={(e) => setSatuan(e.target.value)}
+        {/* Tarif */}
+        <div>
+          <label className="block text-xs font-semibold text-[#3F4B44] mb-1.5">
+            Tarif <span className="font-normal text-[#5B6B61]">(wajib)</span>
+          </label>
+          <div className="modal-tarif-wrapper">
+            <span className="modal-tarif-prefix">Rp</span>
+            <input
+              type="number"
+              min="1"
+              className="modal-input"
+              value={tarif}
+              onChange={(e) => setTarif(e.target.value)}
+              placeholder="0"
               required
-            >
-              {satuanOptions.map((opt) => (
-                <option key={opt} value={opt}>
-                  {opt}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Tarif */}
-          <div>
-            <label className="block text-xs font-semibold text-[#3F4B44] mb-1.5">
-              Tarif <span className="font-normal text-[#5B6B61]">(wajib)</span>
-            </label>
-            <div className="relative flex items-center">
-              <span className="absolute left-3.5 text-sm text-[#5B6B61] font-medium pointer-events-none">
-                Rp
-              </span>
-              <input
-                type="number"
-                min="1"
-                className="w-full pl-10 pr-12 py-2.5 bg-white border border-[#DDE2DF] rounded-xl text-sm text-[#14201A] placeholder:text-[#9CA3AF] focus:outline-none focus:border-[#1F6B3F] focus:ring-1 focus:ring-[#1F6B3F] transition-all"
-                value={tarif}
-                onChange={(e) => setTarif(e.target.value)}
-                placeholder="0"
-                required
-              />
-              <span className="absolute right-3.5 text-xs text-[#5B6B61] pointer-events-none">
-                / {satuan || "kg"}
-              </span>
-            </div>
+            />
+            <span className="modal-tarif-suffix">/ {satuan || "kg"}</span>
           </div>
         </div>
 
@@ -273,15 +247,15 @@ export default function PopUpTambahJenisOlahan({ item, onClose, onSaved }) {
                 const sNama = s.nama_sampah || s.nama;
 
                 return (
-                  <label
+                  <div
                     key={sId}
                     onClick={() => toggleKomposisi(sId)}
-                    className={`flex items-center gap-3 px-3.5 py-2.5 cursor-pointer transition-colors select-none ${
-                      isChecked ? "bg-[#F4FAF6]" : "hover:bg-[#F9FAF9]"
-                    }`}
+                    style={{ display: "flex", alignItems: "center", gap: "12px", padding: "10px 14px", cursor: "pointer", userSelect: "none" }}
+                    className={`transition-colors ${isChecked ? "bg-[#F4FAF6]" : "hover:bg-[#F9FAF9]"}`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-md flex items-center justify-center border transition-all ${
+                      style={{ width: "20px", height: "20px", flexShrink: 0 }}
+                      className={`rounded-md flex items-center justify-center border transition-all ${
                         isChecked
                           ? "bg-[#1F6B3F] border-[#1F6B3F] text-white"
                           : "border-[#DDE2DF] bg-white"
@@ -289,10 +263,10 @@ export default function PopUpTambahJenisOlahan({ item, onClose, onSaved }) {
                     >
                       {isChecked && <LuCheck size={14} strokeWidth={3} />}
                     </div>
-                    <span className="text-sm font-medium text-[#14201A]">
+                    <span style={{ fontSize: "14px", fontWeight: 500, color: "#14201A" }}>
                       {sNama}
                     </span>
-                  </label>
+                  </div>
                 );
               })
             )}
@@ -310,10 +284,10 @@ export default function PopUpTambahJenisOlahan({ item, onClose, onSaved }) {
         )}
 
         {/* Action Buttons */}
-        <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#DDE2DF] mt-1">
+        <div className="modal-actions">
           <button
             type="button"
-            className="px-4 py-2 border border-[#DDE2DF] rounded-xl text-sm font-semibold text-[#3F4B44] hover:bg-[#F6F8F7] transition-colors"
+            className="modal-btn-cancel"
             onClick={onClose}
             disabled={saving}
           >
@@ -321,7 +295,7 @@ export default function PopUpTambahJenisOlahan({ item, onClose, onSaved }) {
           </button>
           <button
             type="submit"
-            className="px-5 py-2 bg-[#1F6B3F] hover:bg-[#185733] text-white rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+            className="modal-btn-submit"
             disabled={saving}
           >
             {saving

@@ -14,6 +14,7 @@ import {
   publikasikanHasilOlahan,
 } from "../../../services/hasilOlahanService";
 import { getPengolahanDetail } from "../../../services/pengolahanSampahService";
+import { getJenisOlahan } from "../../../services/jenisOlahanService";
 
 const formatBatchCode = (id) => {
   if (!id) return "";
@@ -46,9 +47,9 @@ export default function HasilOlahanPage() {
 
   // State form catat hasil (jika catatBatch aktif)
   const [activeBatchDetail, setActiveBatchDetail] = useState(null);
+  const [tarifOlahan, setTarifOlahan] = useState(0);
   const [loadingBatchDetail, setLoadingBatchDetail] = useState(false);
   const [beratHasilInput, setBeratHasilInput] = useState("");
-  const [nilaiJualInput, setNilaiJualInput] = useState("");
   const [formError, setFormError] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
@@ -85,21 +86,44 @@ export default function HasilOlahanPage() {
     loadHasilList();
   }, [loadHasilList]);
 
-  // 2. Jika ada query param `catatBatch`, ambil detail batch dari backend
+  // 2. Jika ada query param `catatBatch`, ambil detail batch & tarif jenis olahan dari backend
   useEffect(() => {
     if (catatBatchParam) {
       setLoadingBatchDetail(true);
       setFormError("");
-      getPengolahanDetail(catatBatchParam)
-        .then((data) => {
+      Promise.all([
+        getPengolahanDetail(catatBatchParam),
+        getJenisOlahan().catch(() => []),
+      ])
+        .then(([data, jenisOlahanList]) => {
           setActiveBatchDetail(data);
+
+          // Cari tarif_nilai_olahan dari detail batch atau master jenis olahan
+          const matchedJenis = (jenisOlahanList || []).find(
+            (j) =>
+              (data.id_jenis_olahan != null &&
+                (j.id_jenis_olahan === data.id_jenis_olahan ||
+                  j.id === data.id_jenis_olahan)) ||
+              (data.nama_olahan &&
+                (j.nama_olahan || j.nama || "").trim().toLowerCase() ===
+                  data.nama_olahan.trim().toLowerCase())
+          );
+          const resolvedTarif = Number(
+            data.tarif_nilai_olahan ??
+              matchedJenis?.tarif_nilai_olahan ??
+              matchedJenis?.tarif ??
+              0
+          );
+          setTarifOlahan(Number.isFinite(resolvedTarif) ? resolvedTarif : 0);
+
           // Set estimasi default berat dari total bahan baku jika ada
           const totalBahan = (data.bahan_baku || []).reduce(
             (sum, b) => sum + (Number(b.berat_digunakan) || 0),
             0
           );
-          if (totalBahan > 0) {
-            setBeratHasilInput(String(totalBahan));
+          const roundedTotal = Math.round(totalBahan * 100) / 100;
+          if (roundedTotal > 0) {
+            setBeratHasilInput(String(roundedTotal));
           }
         })
         .catch((err) => {
@@ -111,15 +135,37 @@ export default function HasilOlahanPage() {
         });
     } else {
       setActiveBatchDetail(null);
+      setTarifOlahan(0);
       setBeratHasilInput("");
-      setNilaiJualInput("");
       setFormError("");
     }
   }, [catatBatchParam]);
 
-  // Handle Simpan Draft (Belum Dipublikasi)
-  async function handleSimpanDraft(e) {
-    e.preventDefault();
+  // Total berat bahan baku yang digunakan pada batch aktif
+  const totalBeratBahanBaku = useMemo(() => {
+    if (!activeBatchDetail?.bahan_baku) return 0;
+    const sum = activeBatchDetail.bahan_baku.reduce(
+      (acc, b) => acc + (Number(b.berat_digunakan) || 0),
+      0
+    );
+    return Math.round(sum * 100) / 100;
+  }, [activeBatchDetail]);
+
+  const parsedBeratHasil = parseFloat(beratHasilInput);
+  const isBeratExceedingBahanBaku =
+    totalBeratBahanBaku > 0 &&
+    Number.isFinite(parsedBeratHasil) &&
+    parsedBeratHasil > totalBeratBahanBaku;
+
+  // Nilai jual otomatis: berat hasil × tarif olahan
+  const calculatedNilaiJual = useMemo(() => {
+    if (!Number.isFinite(parsedBeratHasil) || parsedBeratHasil <= 0 || tarifOlahan <= 0) {
+      return 0;
+    }
+    return Math.round(parsedBeratHasil * tarifOlahan);
+  }, [parsedBeratHasil, tarifOlahan]);
+
+  async function submitHasilOlahan(statusPublikasi) {
     if (!catatBatchParam) return;
 
     const berat = parseFloat(beratHasilInput);
@@ -128,55 +174,49 @@ export default function HasilOlahanPage() {
       return;
     }
 
-    const rawNilai = String(nilaiJualInput).replace(/\D/g, "");
-    const nilai = Number(rawNilai || 0);
+    if (totalBeratBahanBaku > 0 && berat > totalBeratBahanBaku) {
+      setFormError(
+        `Berat hasil tidak boleh lebih dari total berat bahan baku (${formatKg(totalBeratBahanBaku)}).`
+      );
+      return;
+    }
 
     setSubmitting(true);
     setFormError("");
     try {
       await createHasilOlahan(catatBatchParam, {
         berat_hasil_olahan: berat,
-        nilai_jual: nilai,
-        status_publikasi: "Belum Dipublikasi",
+        nilai_jual: calculatedNilaiJual,
+        status_publikasi: statusPublikasi,
       });
-      setSavedBatchCode(formatBatchCode(catatBatchParam));
+      if (statusPublikasi === "Sudah Dipublikasi") {
+        setPublishedBatchCode(formatBatchCode(catatBatchParam));
+      } else {
+        setSavedBatchCode(formatBatchCode(catatBatchParam));
+      }
       await loadHasilList();
     } catch (err) {
-      setFormError(formatError(err) || "Gagal menyimpan hasil olahan.");
+      setFormError(
+        formatError(err) ||
+          (statusPublikasi === "Sudah Dipublikasi"
+            ? "Gagal mempublikasikan hasil olahan."
+            : "Gagal menyimpan hasil olahan.")
+      );
     } finally {
       setSubmitting(false);
     }
   }
 
-  // Handle Publikasikan Form Langsung
-  async function handlePublikasikanForm(e) {
+  // Handle Simpan Draft (Belum Dipublikasi)
+  function handleSimpanDraft(e) {
     e.preventDefault();
-    if (!catatBatchParam) return;
+    submitHasilOlahan("Belum Dipublikasi");
+  }
 
-    const berat = parseFloat(beratHasilInput);
-    if (!Number.isFinite(berat) || berat <= 0) {
-      setFormError("Berat hasil olahan wajib diisi dan harus lebih dari 0.");
-      return;
-    }
-
-    const rawNilai = String(nilaiJualInput).replace(/\D/g, "");
-    const nilai = Number(rawNilai || 0);
-
-    setSubmitting(true);
-    setFormError("");
-    try {
-      await createHasilOlahan(catatBatchParam, {
-        berat_hasil_olahan: berat,
-        nilai_jual: nilai,
-        status_publikasi: "Sudah Dipublikasi",
-      });
-      setPublishedBatchCode(formatBatchCode(catatBatchParam));
-      await loadHasilList();
-    } catch (err) {
-      setFormError(formatError(err) || "Gagal mempublikasikan hasil olahan.");
-    } finally {
-      setSubmitting(false);
-    }
+  // Handle Publikasikan Form Langsung
+  function handlePublikasikanForm(e) {
+    e.preventDefault();
+    submitHasilOlahan("Sudah Dipublikasi");
   }
 
   // Handle Publikasi dari tabel batch selesai
@@ -357,11 +397,18 @@ export default function HasilOlahanPage() {
                   <label className="block text-xs font-semibold text-[#3F4B44] mb-1.5">
                     Berat Hasil
                   </label>
-                  <div className="flex items-center border border-[#DDE2DF] rounded-xl overflow-hidden focus-within:border-[#1F6B3F] focus-within:ring-1 focus-within:ring-[#1F6B3F] bg-white">
+                  <div
+                    className={`flex items-center border rounded-xl overflow-hidden bg-white ${
+                      isBeratExceedingBahanBaku
+                        ? "border-red-500 focus-within:border-red-500 focus-within:ring-1 focus-within:ring-red-500"
+                        : "border-[#DDE2DF] focus-within:border-[#1F6B3F] focus-within:ring-1 focus-within:ring-[#1F6B3F]"
+                    }`}
+                  >
                     <input
                       type="number"
                       step="0.01"
                       min="0.01"
+                      max={totalBeratBahanBaku > 0 ? totalBeratBahanBaku : undefined}
                       placeholder="0,0"
                       value={beratHasilInput}
                       onChange={(e) => {
@@ -375,31 +422,39 @@ export default function HasilOlahanPage() {
                       kg
                     </span>
                   </div>
+                  {isBeratExceedingBahanBaku ? (
+                    <p className="mt-1 text-[11px] text-red-600">
+                      Berat hasil tidak boleh lebih dari total berat bahan baku ({formatKg(totalBeratBahanBaku)}).
+                    </p>
+                  ) : totalBeratBahanBaku > 0 ? (
+                    <p className="mt-1 text-[11px] text-[#5B6B61]">
+                      Maksimal {formatKg(totalBeratBahanBaku)} (total bahan baku yang digunakan)
+                    </p>
+                  ) : null}
                 </div>
 
-                {/* Nilai Jual */}
+                {/* Nilai Jual (Otomatis dari Berat Hasil × Tarif Olahan) */}
                 <div>
                   <label className="block text-xs font-semibold text-[#3F4B44] mb-1.5">
                     Nilai Jual
                   </label>
-                  <div className="flex items-center border border-[#DDE2DF] rounded-xl overflow-hidden focus-within:border-[#1F6B3F] focus-within:ring-1 focus-within:ring-[#1F6B3F] bg-white">
-                    <span className="px-3 text-xs font-semibold text-[#5B6B61] bg-[#F9FAF9] border-r border-[#DDE2DF] py-3 select-none">
+                  <div className="flex items-center border border-[#DDE2DF] rounded-xl overflow-hidden bg-[#F9FAF9]">
+                    <span className="px-3 text-xs font-semibold text-[#5B6B61] bg-[#F2F4F3] border-r border-[#DDE2DF] py-3 select-none">
                       Rp
                     </span>
                     <input
-                      type="number"
-                      min="0"
-                      step="1000"
-                      placeholder="0"
-                      value={nilaiJualInput}
-                      onChange={(e) => {
-                        setNilaiJualInput(e.target.value);
-                        setFormError("");
-                      }}
-                      disabled={submitting}
-                      className="w-full px-3.5 py-2.5 text-sm text-[#14201A] focus:outline-none"
+                      type="text"
+                      readOnly
+                      value={calculatedNilaiJual.toLocaleString("id-ID")}
+                      aria-label="Nilai Jual (otomatis)"
+                      className="w-full px-3.5 py-2.5 text-sm font-semibold text-[#14201A] bg-[#F9FAF9] focus:outline-none cursor-default"
                     />
                   </div>
+                  <p className="mt-1 text-[11px] text-[#5B6B61]">
+                    {tarifOlahan > 0
+                      ? `Otomatis: berat hasil × tarif olahan (${formatRupiah(tarifOlahan)}/kg)`
+                      : "Tarif olahan tidak tersedia (Rp 0/kg)"}
+                  </p>
                 </div>
 
                 {formError && (

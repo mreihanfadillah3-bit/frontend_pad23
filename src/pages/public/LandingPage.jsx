@@ -932,11 +932,11 @@ export default function LandingPage() {
               </div>
             </div>
 
-            {/* Right Side: Timestamp */}
+            {/* Right Side: Timestamp 
             <div className="text-[11px] text-[#5B6B61] self-center">
-              Terakhir diperbarui hari ini 09:41
-            </div>
-          </div>
+              Terakhir diperbarui hari ini, 
+            </div> */}
+          </div> 
 
           {/* ── 4 STAT CARDS ── */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 z-10 relative">

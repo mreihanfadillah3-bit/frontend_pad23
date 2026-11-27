@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Modal from "../../../components/common/Modal";
-import { formatError } from "../../../utils/format";
+import { formatError, isValidWhatsappNumber } from "../../../utils/format";
 
 export default function PopUpTambahDataWarga({ onClose, onSave, initialData = null }) {
   const isEdit = Boolean(initialData);
@@ -31,8 +31,8 @@ export default function PopUpTambahDataWarga({ onClose, onSave, initialData = nu
       setError("Nama dan WhatsApp wajib diisi.");
       return;
     }
-    if (!/^[0-9+\-\s]{9,20}$/.test(nomor_wa)) {
-      setError("Nomor WhatsApp tidak valid. Gunakan nomor berawalan 08 atau +62.");
+    if (!isValidWhatsappNumber(nomor_wa)) {
+      setError("Nomor WhatsApp tidak valid. Gunakan nomor aktif berawalan 08 atau +62.");
       return;
     }
 

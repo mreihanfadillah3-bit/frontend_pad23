@@ -26,3 +26,12 @@ export function formatError(err) {
 export function formatKg(angka) {
   return `${Number(angka ?? 0).toLocaleString("id-ID")} kg`;
 }
+
+/**
+ * Validasi nomor WhatsApp: harus berawalan 08 atau +62 dengan panjang digit yang valid.
+ */
+export function isValidWhatsappNumber(value) {
+  if (typeof value !== "string") return false;
+  const cleaned = value.trim().replace(/[\s-]/g, "");
+  return /^(08\d{7,13}|\+62\d{8,13})$/.test(cleaned);
+}

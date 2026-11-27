@@ -902,9 +902,9 @@ export default function DashboardPage() {
               </div>
 
             </div>
-            <p className="inline-block rounded-md bg-white px-2 py-1 text-xs text-[#5B6B61]">
+            {/*<p className="inline-block rounded-md bg-white px-2 py-1 text-xs text-[#5B6B61]">
               Terakhir diperbarui hari ini, {lastUpdated}
-            </p>
+            </p>*/}
           </div>
 
           {/* Stat cards */}

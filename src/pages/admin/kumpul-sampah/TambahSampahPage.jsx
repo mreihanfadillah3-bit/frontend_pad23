@@ -3,7 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { MdChevronLeft } from "react-icons/md";
 import { getWarga, createWarga } from "../../../services/wargaService";
 import { createPengumpulan } from "../../../services/pengumpulanSampahService";
-import { formatError } from "../../../utils/format";
+import { formatError, isValidWhatsappNumber } from "../../../utils/format";
 import PopUpSuksesTambahWarga from "./PopUpSuksesTambahWarga";
 
 const EMPTY_FORM = { nama: "", whatsapp: "" };
@@ -32,8 +32,8 @@ export default function TambahSampahPage() {
       setError("Nama warga dan nomor WhatsApp wajib diisi.");
       return;
     }
-    if (!/^[0-9+\-\s]{9,20}$/.test(whatsapp)) {
-      setError("Nomor WhatsApp tidak valid. Gunakan nomor berawalan 08 atau +62.");
+    if (!isValidWhatsappNumber(whatsapp)) {
+      setError("Nomor WhatsApp tidak valid. Gunakan nomor aktif berawalan 08 atau +62.");
       return;
     }
 

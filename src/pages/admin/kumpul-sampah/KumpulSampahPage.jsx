@@ -11,6 +11,7 @@ import {
 } from "react-icons/md";
 import { LuPencil, LuTrash2 } from "react-icons/lu";
 import PopUpKonfirmasiHapus from "../../../components/common/PopUpKonfirmasiHapus";
+import PopUpKonfirmasiLunas from "./PopUpKonfirmasiLunas";
 import PeriodFilter, { MONTHS_ID } from "../../../components/common/PeriodFilter";
 import { formatKg, formatRupiah, formatError } from "../../../utils/format";
 import { getPengumpulan, deletePengumpulan } from "../../../services/pengumpulanSampahService";
@@ -52,6 +53,8 @@ export default function KumpulSampahPage() {
   const [page, setPage] = useState(1);
   const [meta, setMeta] = useState({ current_page: 1, last_page: 1, total: 0, per_page: 10 });
   const [payingId, setPayingId] = useState(null);
+  const [notaToPay, setNotaToPay] = useState(null);
+  const [payError, setPayError] = useState("");
   const [notaToDelete, setNotaToDelete] = useState(null);
   const [stats, setStats] = useState({ totalKg: 0, totalNilai: 0 });
   const rawListRef = useRef([]);
@@ -276,16 +279,19 @@ export default function KumpulSampahPage() {
     setPage(1);
   }
 
-  async function handleTandaiLunas(nota) {
-    const id = nota.id_pengumpulan_sampah ?? nota.id;
+  async function confirmTandaiLunas() {
+    if (!notaToPay) return;
+    const id = notaToPay.id_pengumpulan_sampah ?? notaToPay.id;
     setPayingId(id);
+    setPayError("");
     try {
       await bayarSetoran(id, {
-        jumlah_dibayar: nota.total_biaya || 0,
+        jumlah_dibayar: notaToPay.total_biaya || 0,
       });
       await Promise.all([loadData(), loadStats()]);
+      setNotaToPay(null);
     } catch (err) {
-      alert(formatError(err) || "Gagal mencatat pembayaran.");
+      setPayError(formatError(err) || "Gagal mencatat pembayaran.");
     } finally {
       setPayingId(null);
     }
@@ -500,7 +506,10 @@ export default function KumpulSampahPage() {
                               <button
                                 type="button"
                                 disabled={payingId === idNota}
-                                onClick={() => handleTandaiLunas(n)}
+                                onClick={() => {
+                                  setPayError("");
+                                  setNotaToPay(n);
+                                }}
                                 className="inline-flex items-center gap-1 px-3 py-1 rounded-lg border border-[#1F6B3F] text-[#1F6B3F] text-xs font-semibold hover:bg-[#E3F1E8] transition-colors cursor-pointer disabled:opacity-50"
                               >
                                 <MdCheck size={14} />
@@ -517,7 +526,7 @@ export default function KumpulSampahPage() {
                               </button>
                             )}
 
-                            {(isMenungguPilah || isSelesai) && (
+                            {(isMenungguPilah || isMenungguBayar) && (
                               <button
                                 type="button"
                                 onClick={() => setNotaToDelete(n)}
@@ -631,6 +640,27 @@ export default function KumpulSampahPage() {
           </div>
         </div>
       </div>
+
+      {notaToPay && (
+        <PopUpKonfirmasiLunas
+          title="Konfirmasi Pelunasan?"
+          subtitle="Pastikan pembayaran untuk nota ini sudah diterima."
+          details={[
+            { label: "ID Nota", value: formatNotaCode(notaToPay.id_pengumpulan_sampah ?? notaToPay.id) },
+            { label: "Nama Warga", value: notaToPay.nama_warga ?? notaToPay.warga?.nama ?? notaToPay.warga_nama ?? notaToPay.nama ?? "—" },
+            { label: "Total Biaya", value: !notaToPay.total_biaya || notaToPay.total_biaya <= 0 ? "—" : formatRupiah(notaToPay.total_biaya) },
+          ]}
+          loading={payingId === (notaToPay.id_pengumpulan_sampah ?? notaToPay.id)}
+          error={payError}
+          onClose={() => {
+            if (!payingId) {
+              setNotaToPay(null);
+              setPayError("");
+            }
+          }}
+          onConfirm={confirmTandaiLunas}
+        />
+      )}
 
       {notaToDelete && (
         <PopUpKonfirmasiHapus

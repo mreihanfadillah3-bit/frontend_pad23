@@ -754,16 +754,17 @@ export default function PilahSampahPage() {
                                 i.jenis_sampah?.nama_sampah ??
                                 i.jenis ??
                                 "Sampah";
-                              const nilai = i.nilai ?? i.harga ?? i.total_harga ?? 0;
-                              // Harga per kg (sub-label di tabel, gambar 1)
+                              const rawNilai = i.nilai ?? i.harga ?? i.total_harga;
+                              const nilai = rawNilai ?? 0;
+                              // Harga per kg: prioritaskan snapshot / hasil bagi nilai & berat agar tarif pada nota tetap freeze
                               const hargaPerKg =
                                 i.harga_per_kg ??
-                                i.tarif_jasa_pengelolaan ??
                                 i.tarif_per_kg ??
-                                i.jenis_sampah?.tarif_jasa_pengelolaan ??
-                                (Number(i.berat) > 0
-                                  ? Math.round(Number(nilai) / Number(i.berat))
-                                  : 0);
+                                (Number(i.berat) > 0 && rawNilai != null
+                                  ? Math.round(Number(rawNilai) / Number(i.berat))
+                                  : i.tarif_jasa_pengelolaan ??
+                                    i.jenis_sampah?.tarif_jasa_pengelolaan ??
+                                    0);
 
                               return (
                                 <tr

@@ -61,15 +61,15 @@ export default function PopUpPilahSampah({
     }
   }
 
-  // Harga per kg dari item (tarif_per_kg disimpan di field harga_per_kg atau dihitung dari nilai/berat)
+  // Harga per kg dari item: prioritaskan snapshot (harga_per_kg / tarif_per_kg) atau hitung dari nilai/berat yang sudah freeze
   const resolveHargaPerKg = (item) => {
-    if (item.harga_per_kg) return Number(item.harga_per_kg);
-    if (item.tarif_per_kg) return Number(item.tarif_per_kg);
-    if (item.tarif_jasa_pengelolaan) return Number(item.tarif_jasa_pengelolaan);
-    if (item.jenis_sampah?.tarif_jasa_pengelolaan) return Number(item.jenis_sampah.tarif_jasa_pengelolaan);
+    if (item.harga_per_kg != null) return Number(item.harga_per_kg);
+    if (item.tarif_per_kg != null) return Number(item.tarif_per_kg);
     const berat = Number(item.berat) || 0;
-    const nilai = Number(item.nilai) || Number(item.harga) || 0;
-    if (berat > 0 && nilai > 0) return Math.round(nilai / berat);
+    const rawNilai = item.nilai ?? item.harga;
+    if (berat > 0 && rawNilai != null) return Math.round(Number(rawNilai) / berat);
+    if (item.tarif_jasa_pengelolaan != null) return Number(item.tarif_jasa_pengelolaan);
+    if (item.jenis_sampah?.tarif_jasa_pengelolaan != null) return Number(item.jenis_sampah.tarif_jasa_pengelolaan);
     return 0;
   };
 

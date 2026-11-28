@@ -17,7 +17,7 @@ import { formatKg, formatRupiah, formatError } from "../../../utils/format";
 import { getPengumpulan, deletePengumpulan } from "../../../services/pengumpulanSampahService";
 import { bayarSetoran } from "../../../services/pembayaranService";
 import { getDashboard } from "../../../services/dashboardService";
-import { getNotaStage } from "../../../utils/statusHelper";
+import { getNotaStage, unmarkNotaAsGenerated } from "../../../utils/statusHelper";
 
 const TABS = [
   { key: "semua", label: "Semua", statusParam: "" },
@@ -302,6 +302,7 @@ export default function KumpulSampahPage() {
       const id = notaToDelete.id_pengumpulan_sampah ?? notaToDelete.id;
       try {
         await deletePengumpulan(id);
+        unmarkNotaAsGenerated(id);
         await Promise.all([loadData(), loadStats()]);
       } catch (err) {
         console.warn("Gagal menghapus via API:", err);

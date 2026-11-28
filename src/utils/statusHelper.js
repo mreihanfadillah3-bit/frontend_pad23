@@ -26,6 +26,18 @@ export function markNotaAsGenerated(id) {
   }
 }
 
+export function unmarkNotaAsGenerated(id) {
+  try {
+    if (typeof window === "undefined" || !window.localStorage) return;
+    const numId = Number(id);
+    if (!numId) return;
+    const list = getGeneratedNotaIds().filter((item) => item !== numId);
+    localStorage.setItem(GENERATED_NOTAS_KEY, JSON.stringify(list));
+  } catch (e) {
+    console.error("Gagal hapus status nota:", e);
+  }
+}
+
 /**
  * Menentukan tahapan/status nota setoran:
  * - "lunas": Pembayaran sudah lunas
@@ -50,7 +62,12 @@ export function getNotaStage(item, customGeneratedIds) {
     return "lunas";
   }
 
-  // 2. Cek MENUNGGU PEMBAYARAN (nota sudah dibuat)
+  // 2. Jika backend eksplisit menyatakan masih Menunggu Dipilah, jangan tertimpa localStorage lama
+  if (statusUi === "menunggu dipilah") {
+    return "menunggu";
+  }
+
+  // 3. Cek MENUNGGU PEMBAYARAN (nota sudah dibuat)
   const ids = Array.isArray(customGeneratedIds)
     ? customGeneratedIds
     : getGeneratedNotaIds();
